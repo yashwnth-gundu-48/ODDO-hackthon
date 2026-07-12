@@ -35,6 +35,24 @@
                     <span>Reports</span>
                 </a>
             </nav>
+            <div class="sidebar-divider"></div>
+            <div class="sidebar-footer">
+                <div class="sidebar-user">
+                    <div class="sidebar-avatar">A</div>
+                    <div>
+                        <p>Admin</p>
+                        <span>Asset Manager</span>
+                    </div>
+                </div>
+                <button class="sidebar-logout">
+                    <i class="fa-solid fa-right-from-bracket"></i>
+                    Logout
+                </button>
+                <button class="sidebar-collapse" id="sidebarCollapseBtn">
+                    <i class="fa-solid fa-chevron-left"></i>
+                    <span>Collapse</span>
+                </button>
+            </div>
         </aside>
         <div class="content-area">
             <header class="topbar">
@@ -84,6 +102,14 @@
                         <h3 id="reportAssetAssigned">0</h3>
                     </article>
                     <article class="glass-card">
+                        <p>Warranty Expiring Soon</p>
+                        <h3 id="reportWarrantyExpiringSoon">0</h3>
+                    </article>
+                    <article class="glass-card">
+                        <p>Average Health</p>
+                        <h3 id="reportAverageHealth">0%</h3>
+                    </article>
+                    <article class="glass-card">
                         <p>Employees</p>
                         <h3 id="reportEmployeeTotal">0</h3>
                     </article>
@@ -94,6 +120,16 @@
                         <select id="reportCategoryFilter">
                             <option value="all">All Categories</option>
                         </select>
+                    </div>
+                    <div class="toolbar-group">
+                        <button class="secondary-btn" id="exportCsvBtn">
+                            <i class="fa-solid fa-file-csv"></i>
+                            Export CSV
+                        </button>
+                        <button class="secondary-btn" id="exportPdfBtn">
+                            <i class="fa-solid fa-file-pdf"></i>
+                            Export PDF
+                        </button>
                     </div>
                 </section>
                 <section class="reports-grid">
@@ -109,6 +145,18 @@
                         </div>
                         <canvas id="categoryBarChart" aria-label="Asset category bar chart"></canvas>
                     </article>
+                    <article class="glass-card chart-card">
+                        <div class="panel-header">
+                            <h3>Monthly Asset Activity</h3>
+                        </div>
+                        <canvas id="monthlyActivityChart" aria-label="Monthly asset activity line chart"></canvas>
+                    </article>
+                    <article class="glass-card chart-card">
+                        <div class="panel-header">
+                            <h3>Department Asset Distribution</h3>
+                        </div>
+                        <canvas id="departmentAssetChart" aria-label="Department asset distribution chart"></canvas>
+                    </article>
                 </section>
                 <section class="report-details">
                     <article class="glass-card detail-card">
@@ -119,12 +167,18 @@
                         <h3>Category Summary</h3>
                         <ul id="categorySummaryList"></ul>
                     </article>
+                    <article class="glass-card detail-card">
+                        <h3>Warranty Status</h3>
+                        <ul id="warrantySummaryList"></ul>
+                    </article>
                 </section>
+                <footer class="page-footer">© 2026 AssetFlow Pro | Odoo Hackathon</footer>
             </main>
         </div>
     </div>
 
-    <div class="toast-container" id="toastContainer"></div>
+    <div class="toast-container" id="toastContainer" role="status" aria-live="polite" aria-atomic="true"></div>
+    <div class="notification-panel" id="notificationPanel" aria-hidden="true"></div>
     <div class="loading-overlay hidden" id="loadingOverlay">
         <div class="loader"></div>
     </div>
@@ -133,4 +187,3 @@
     <script src="script.js"></script>
 </body>
 </html>
-
