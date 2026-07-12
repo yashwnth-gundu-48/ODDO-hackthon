@@ -3,22 +3,22 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AssetFlow | Employees</title>
+    <title>AssetFlow | Dashboard</title>
     <link rel="stylesheet" href="style.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.6.0/css/all.min.css">
 </head>
-<body data-page="employees">
+<body data-page="dashboard">
     <div class="app-shell">
         <aside class="sidebar">
             <div class="brand">
                 <div class="brand-mark">AF</div>
                 <div>
                     <h1>AssetFlow</h1>
-                    <p>Team operations</p>
+                    <p>Enterprise Asset Management</p>
                 </div>
             </div>
             <nav class="nav-links">
-                <a class="nav-link" href="index.html">
+                <a class="nav-link active" href="index.html">
                     <i class="fa-solid fa-house"></i>
                     <span>Dashboard</span>
                 </a>
@@ -26,7 +26,7 @@
                     <i class="fa-solid fa-box"></i>
                     <span>Assets</span>
                 </a>
-                <a class="nav-link active" href="employees.html">
+                <a class="nav-link" href="employees.html">
                     <i class="fa-solid fa-users"></i>
                     <span>Employees</span>
                 </a>
@@ -35,20 +35,39 @@
                     <span>Reports</span>
                 </a>
             </nav>
+            <div class="sidebar-divider"></div>
+            <div class="sidebar-footer">
+                <div class="sidebar-user">
+                    <div class="sidebar-avatar">A</div>
+                    <div>
+                        <p>Admin</p>
+                        <span>Asset Manager</span>
+                    </div>
+                </div>
+                <button class="sidebar-logout">
+                    <i class="fa-solid fa-right-from-bracket"></i>
+                    Logout
+                </button>
+                <button class="sidebar-collapse" id="sidebarCollapseBtn">
+                    <i class="fa-solid fa-chevron-left"></i>
+                    <span>Collapse</span>
+                </button>
+            </div>
         </aside>
+
         <div class="content-area">
             <header class="topbar">
                 <button class="menu-toggle" aria-label="Toggle menu">
                     <i class="fa-solid fa-bars"></i>
                 </button>
                 <form class="top-search" onsubmit="return false;">
-                    <input type="search" placeholder="Search employees by name or role..." id="employeeSearch">
+                    <input type="search" placeholder="Search assets, employees, reports..." id="dashboardSearch">
                     <button><i class="fa-solid fa-magnifying-glass"></i></button>
                 </form>
                 <div class="top-actions">
                     <button class="icon-btn" aria-label="Notifications">
                         <i class="fa-regular fa-bell"></i>
-                        <span class="badge">1</span>
+                        <span class="badge">3</span>
                     </button>
                     <button class="profile-btn" aria-label="Profile">
                         <span class="avatar">AF</span>
@@ -59,143 +78,144 @@
                     </button>
                 </div>
             </header>
+
             <main class="page-content">
                 <section class="page-header">
                     <div>
-                        <p class="eyebrow">People & assignments</p>
-                        <h2>Employees</h2>
+                        <p class="eyebrow">Company Overview</p>
+                        <h2>Dashboard</h2>
                     </div>
                     <nav class="breadcrumbs">
                         <a href="index.html">Home</a>
-                        <span>Employees</span>
+                        <span>Dashboard</span>
                     </nav>
                 </section>
-                <section class="stats-grid small-grid">
-                    <article class="glass-card">
-                        <p>Total Team</p>
-                        <h3 id="employeeCount">0</h3>
+
+                <section class="stats-grid">
+                    <article class="glass-card primary-card">
+                        <div class="card-icon blue">
+                            <i class="fa-solid fa-layer-group"></i>
+                        </div>
+                        <div>
+                            <p>Total Assets</p>
+                            <h3 id="totalAssets">0</h3>
+                        </div>
                     </article>
                     <article class="glass-card">
-                        <p>Assets Assigned</p>
-                        <h3 id="employeeAssignedCount">0</h3>
+                        <div class="card-icon cyan">
+                            <i class="fa-solid fa-box-open"></i>
+                        </div>
+                        <div>
+                            <p>Available</p>
+                            <h3 id="availableAssets">0</h3>
+                        </div>
                     </article>
                     <article class="glass-card">
-                        <p>Assets Available</p>
-                        <h3 id="employeeAvailableCount">0</h3>
+                        <div class="card-icon indigo">
+                            <i class="fa-solid fa-check-to-slot"></i>
+                        </div>
+                        <div>
+                            <p>Assigned</p>
+                            <h3 id="assignedAssets">0</h3>
+                        </div>
+                    </article>
+                    <article class="glass-card">
+                        <div class="card-icon violet">
+                            <i class="fa-solid fa-tools"></i>
+                        </div>
+                        <div>
+                            <p>Under Maintenance</p>
+                            <h3 id="pendingReviews">0</h3>
+                        </div>
+                    </article>
+                    <article class="glass-card">
+                        <div class="card-icon orange">
+                            <i class="fa-solid fa-triangle-exclamation"></i>
+                        </div>
+                        <div>
+                            <p>Warranty Expiring Soon</p>
+                            <h3 id="warrantyExpiringSoon">0</h3>
+                        </div>
+                    </article>
+                    <article class="glass-card">
+                        <div class="card-icon green">
+                            <i class="fa-solid fa-heart-pulse"></i>
+                        </div>
+                        <div>
+                            <p>Average Health</p>
+                            <h3 id="averageHealth">0%</h3>
+                        </div>
+                    </article>
+                    <article class="glass-card">
+                        <div class="card-icon violet">
+                            <i class="fa-solid fa-user-group"></i>
+                        </div>
+                        <div>
+                            <p>Total Employees</p>
+                            <h3 id="employeesCount">0</h3>
+                        </div>
                     </article>
                 </section>
-                <section class="table-toolbar">
-                    <div class="toolbar-group">
-                        <button class="primary-btn" id="openEmployeeModalBtn">
-                            <i class="fa-solid fa-user-plus"></i>
-                            Add Employee
-                        </button>
-                        <button class="secondary-btn" id="openAssignAssetModalBtn">
-                            <i class="fa-solid fa-handshake"></i>
-                            Assign Asset
-                        </button>
-                    </div>
-                    <div class="toolbar-group">
-                        <select id="employeeDepartmentFilter">
-                            <option value="all">All Departments</option>
-                            <option value="Technology">Technology</option>
-                            <option value="Operations">Operations</option>
-                            <option value="Finance">Finance</option>
-                        </select>
-                        <select id="employeeAssetFilter">
-                            <option value="all">All Status</option>
-                            <option value="hasAssets">Has Assets</option>
-                            <option value="noAssets">No Assets</option>
-                        </select>
-                    </div>
+
+                <section class="actions-grid">
+                    <button class="primary-btn" onclick="location.href='assets.html'">
+                        <i class="fa-solid fa-plus"></i>
+                        Add Asset
+                    </button>
+                    <button class="secondary-btn" onclick="location.href='employees.html'">
+                        <i class="fa-solid fa-user-plus"></i>
+                        Add Employee
+                    </button>
+                    <button class="secondary-btn" onclick="location.href='reports.html'">
+                        <i class="fa-solid fa-chart-line"></i>
+                        View Reports
+                    </button>
                 </section>
-                <section class="employee-content" id="employeeContent"></section>
+
+                <section class="dashboard-panels">
+                    <article class="glass-card panel-card">
+                        <div class="panel-header">
+                            <div>
+                                <h3>Recent Activity</h3>
+                                <p>Latest asset operations and updates.</p>
+                            </div>
+                            <button class="text-btn" onclick="document.getElementById('dashboardSearch').focus();">Search Activity</button>
+                        </div>
+                        <ul class="activity-list" id="recentActivity">
+                            <!-- Activity items generated by JavaScript -->
+                        </ul>
+                    </article>
+                    <article class="glass-card panel-card">
+                        <div class="panel-header">
+                            <div>
+                                <h3>Live Asset Summary</h3>
+                                <p>Top categories and current state.</p>
+                            </div>
+                        </div>
+                        <div class="summary-blocks">
+                            <div>
+                                <span>Inventory categories</span>
+                                <strong id="categoryCount">0</strong>
+                            </div>
+                            <div>
+                                <span>Active assignments</span>
+                                <strong id="activeAssignments">0</strong>
+                            </div>
+                            <div>
+                                <span>Pending reviews</span>
+                                <strong id="pendingReviews">0</strong>
+                            </div>
+                        </div>
+                    </article>
+                </section>
             </main>
+            <footer class="page-footer">© 2026 AssetFlow Pro | Odoo Hackathon</footer>
         </div>
     </div>
 
-    <div class="modal-overlay hidden" id="employeeModalOverlay">
-        <div class="modal-card">
-            <div class="modal-header">
-                <div>
-                    <h3 id="employeeModalTitle">Add Employee</h3>
-                    <p>Store employee profile information.</p>
-                </div>
-                <button class="icon-btn close-modal" aria-label="Close employee modal">
-                    <i class="fa-solid fa-xmark"></i>
-                </button>
-            </div>
-            <form id="employeeForm">
-                <div class="form-grid">
-                    <label>
-                        Full Name
-                        <input type="text" name="name" required>
-                    </label>
-                    <label>
-                        Employee ID
-                        <input type="text" name="id" required>
-                    </label>
-                    <label>
-                        Role
-                        <input type="text" name="role" required>
-                    </label>
-                    <label>
-                        Department
-                        <input type="text" name="department" required>
-                    </label>
-                    <label>
-                        Email
-                        <input type="email" name="email" required>
-                    </label>
-                    <label>
-                        Phone
-                        <input type="tel" name="phone" required>
-                    </label>
-                    <label>
-                        Location
-                        <input type="text" name="location" required>
-                    </label>
-                </div>
-                <div class="modal-actions">
-                    <button type="button" class="secondary-btn close-modal">Cancel</button>
-                    <button type="submit" class="primary-btn">Save Employee</button>
-                </div>
-            </form>
-        </div>
-    </div>
-
-    <div class="modal-overlay hidden" id="assignModalOverlay">
-        <div class="modal-card">
-            <div class="modal-header">
-                <div>
-                    <h3>Assign Asset</h3>
-                    <p>Give an available asset to a team member.</p>
-                </div>
-                <button class="icon-btn close-modal" aria-label="Close assign modal">
-                    <i class="fa-solid fa-xmark"></i>
-                </button>
-            </div>
-            <form id="assignForm">
-                <div class="form-grid">
-                    <label>
-                        Employee
-                        <select name="employeeId" required></select>
-                    </label>
-                    <label>
-                        Available Asset
-                        <select name="assetId" required></select>
-                    </label>
-                </div>
-                <div class="modal-actions">
-                    <button type="button" class="secondary-btn close-modal">Cancel</button>
-                    <button type="submit" class="primary-btn">Assign</button>
-                </div>
-            </form>
-        </div>
-    </div>
-
-    <div class="toast-container" id="toastContainer"></div>
-    <div class="loading-overlay" id="loadingOverlay">
+    <div class="toast-container" id="toastContainer" role="status" aria-live="polite" aria-atomic="true"></div>
+    <div class="notification-panel" id="notificationPanel" aria-hidden="true"></div>
+    <div class="loading-overlay hidden" id="loadingOverlay">
         <div class="loader"></div>
     </div>
 
@@ -203,4 +223,3 @@
     <script src="script.js"></script>
 </body>
 </html>
-
