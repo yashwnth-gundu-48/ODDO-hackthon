@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AssetFlow Pro | Login</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.6.0/css/all.min.css">
+    <meta name="description" content="AssetFlow Pro — Enterprise Asset Management Login">
+    <style>
+        /* small tweak to ensure login uses full viewport without sidebar */
+        body[data-page] { min-height: 100vh; }
+    </style>
+</head>
+<body data-page="login">
+    <main class="login-page">
+        <div class="login-card fade-in">
+            <div class="login-left">
+                <div class="brand-sm">
+                    <div class="brand-mark">AF</div>
+                    <div class="brand-text">
+                        <h1>AssetFlow Pro</h1>
+                        <p>Enterprise Asset Management</p>
+                    </div>
+                </div>
+                <div class="login-hero">
+                    <img src="" alt="Company Logo" class="company-logo" aria-hidden="true">
+                    <h2>AssetFlow Pro</h2>
+                    <p class="muted">Smart inventory, happier teams — manage assets with confidence.</p>
+                </div>
+                <p class="login-desc">Centralize assets, track warranties, and automate assignments — built for modern teams.</p>
+            </div>
+
+            <div class="login-right">
+                <h3>Welcome Back</h3>
+                <p class="muted">Sign in to continue to AssetFlow Pro</p>
+
+                <form id="loginForm" novalidate>
+                    <label class="form-field">
+                        <span class="field-label">Email</span>
+                        <div class="field-row">
+                            <input id="loginEmail" type="email" name="email" placeholder="you@company.com" required>
+                        </div>
+                        <small class="field-error" id="emailError"></small>
+                    </label>
+
+                    <label class="form-field">
+                        <span class="field-label">Password</span>
+                        <div class="field-row">
+                            <input id="loginPassword" type="password" name="password" placeholder="••••••" required minlength="6">
+                            <button type="button" class="icon-btn small" id="togglePassword" aria-label="Show password"><i class="fa-solid fa-eye"></i></button>
+                        </div>
+                        <small class="field-error" id="passwordError"></small>
+                    </label>
+
+                    <div class="form-meta">
+                        <label class="remember">
+                            <input id="rememberMe" type="checkbox">
+                            Remember Me
+                        </label>
+                        <a href="#" class="text-link">Forgot Password?</a>
+                    </div>
+
+                    <div class="form-actions">
+                        <button type="submit" class="primary-btn large" id="loginBtn">Login</button>
+                        <button type="button" class="secondary-btn large" id="createAccountBtn">Create Account</button>
+                    </div>
+
+                    <div class="login-demo">
+                        <p class="muted">Demo accounts:</p>
+                        <ul>
+                            <li><strong>Admin</strong> — admin@assetflow.com / admin123</li>
+                            <li><strong>Employee</strong> — employee@assetflow.com / employee123</li>
+                        </ul>
+                    </div>
+
+                    <div id="loginError" class="login-error" role="alert" aria-live="assertive"></div>
+                </form>
+            </div>
+        </div>
+    </main>
+
+    <div class="toast-container" id="toastContainer" role="status" aria-live="polite" aria-atomic="true"></div>
+    <div class="loading-overlay hidden" id="loadingOverlay">
+        <div class="loader"></div>
+    </div>
+
+    <script src="script.js"></script>
+    <script>
+        // Ensure the login form doesn't perform a native GET submit and attach our handler immediately.
+        (function(){
+            try {
+                const form = document.getElementById('loginForm');
+                const loginBtn = document.getElementById('loginBtn');
+                // Prevent native submission as a safety-net
+                if (form) {
+                    form.addEventListener('submit', function(e){ e.preventDefault(); }, { passive: false });
+                }
+                // If the button exists, make it a non-submit button and wire click to trigger our JS handler
+                if (loginBtn && form) {
+                    try { loginBtn.type = 'button'; } catch {}
+                    loginBtn.addEventListener('click', function(ev){
+                        ev.preventDefault();
+                        // trigger a submit event on the form that our handler will intercept
+                        const evt = new Event('submit', { bubbles: true, cancelable: true });
+                        form.dispatchEvent(evt);
+                    });
+                }
+
+                // call exported attach function from script.js
+                if (typeof attachLoginHandler === 'function') attachLoginHandler();
+                else window.addEventListener('DOMContentLoaded', function(){ if (typeof attachLoginHandler === 'function') attachLoginHandler(); });
+            } catch (err) {
+                console.error('Login bootstrap error', err);
+            }
+        })();
+    </script>
+</body>
+</html>
