@@ -2,6 +2,7 @@ const STORAGE_KEYS = {
     assets: 'assetflow_assets',
     employees: 'assetflow_employees',
     activities: 'assetflow_activities',
+    dashboardStats: 'assetflow_dashboard_stats',
 };
 
 const SAMPLE_ASSETS = [
@@ -104,11 +105,11 @@ const formatDate = (dateString) => {
     });
 };
 
-const showToast = (message) => {
+const showToast = (message, type = 'info') => {
     const container = document.getElementById('toastContainer');
     if (!container) return;
     const toast = document.createElement('div');
-    toast.className = 'toast';
+    toast.className = `toast toast-${type}`;
     toast.textContent = message;
     container.appendChild(toast);
     setTimeout(() => toast.remove(), 3200);
@@ -151,33 +152,158 @@ const renderDashboard = () => {
     const employees = getStorage(STORAGE_KEYS.employees, []);
     const activities = getStorage(STORAGE_KEYS.activities, []);
 
-    const totalAssetsEl = document.getElementById('totalAssets');
-    if (totalAssetsEl) totalAssetsEl.replaceWith(createStatElement('totalAssets', assets.length));
+    const stats = {
+        total: assets.length,
+        available: assets.filter((asset) => asset.status === 'Available').length,
+        assigned: assets.filter((asset) => asset.status === 'Assigned').length,
+        pending: assets.filter((asset) => asset.status === 'In Repair').length,
+        employees: employees.length,
+        categories: new Set(assets.map((asset) => asset.category)).size,
+    };
 
-    const availableAssetsEl = document.getElementById('availableAssets');
-    if (availableAssetsEl) availableAssetsEl.replaceWith(createStatElement('availableAssets', assets.filter((asset) => asset.status === 'Available').length));
+    setStorage(STORAGE_KEYS.dashboardStats, stats);
+    updateDashboardStats(stats);
 
-    const assignedAssetsEl = document.getElementById('assignedAssets');
-    if (assignedAssetsEl) assignedAssetsEl.replaceWith(createStatElement('assignedAssets', assets.filter((asset) => asset.status === 'Assigned').length));
+    renderActivityFeed(activities);
+    updateNotificationCount(activities.length);
+    attachDashboardEvents();
+};
 
-    const employeesCountEl = document.getElementById('employeesCount');
-    if (employeesCountEl) employeesCountEl.replaceWith(createStatElement('employeesCount', employees.length));
-
-    const categoryCountEl = document.getElementById('categoryCount');
-    if (categoryCountEl) categoryCountEl.textContent = new Set(assets.map((asset) => asset.category)).size;
-
-    const activeAssignmentsEl = document.getElementById('activeAssignments');
-    if (activeAssignmentsEl) activeAssignmentsEl.textContent = assets.filter((asset) => asset.status === 'Assigned').length;
-
-    const activityList = document.getElementById('recentActivity');
-    if (activityList) {
-        activityList.innerHTML = '';
-        activities.slice(0, 6).forEach((activity) => {
-            const li = document.createElement('li');
-            li.textContent = activity;
-            activityList.appendChild(li);
-        });
+window.addEventListener('storage', ({ key }) => {
+    if ([STORAGE_KEYS.assets, STORAGE_KEYS.employees, STORAGE_KEYS.activities].includes(key)) {
+        renderDashboard();
     }
+});
+
+window.addEventListener('focus', renderDashboard);
+
+const updateDashboardStats = ({ total, available, assigned, employees, categories, pending }) => {
+    const statMap = {
+        totalAssets: total,
+        availableAssets: available,
+        assignedAssets: assigned,
+        employeesCount: employees,
+        categoryCount: categories,
+        activeAssignments: assigned,
+        pendingReviews: pending,
+    };
+
+    Object.entries(statMap).forEach(([id, value]) => {
+        const element = document.getElementById(id);
+        if (element) {
+            element.textContent = value;
+        }
+    });
+};
+
+const renderActivityFeed = (activities) => {
+    const activityList = document.getElementById('recentActivity');
+    if (!activityList) return;
+
+    activityList.innerHTML = '';
+    activities.slice(0, 6).forEach((activity) => {
+        const li = document.createElement('li');
+        li.className = 'activity-item';
+        li.textContent = activity;
+        activityList.appendChild(li);
+    });
+};
+
+const updateNotificationCount = (count) => {
+    const badge = document.querySelector('.top-actions .badge');
+    if (!badge) return;
+    badge.textContent = count;
+};
+
+const saveActivity = (message) => {
+    const activities = getStorage(STORAGE_KEYS.activities, []);
+    const nextActivities = [message, ...activities].slice(0, 12);
+    setStorage(STORAGE_KEYS.activities, nextActivities);
+    renderActivityFeed(nextActivities);
+    updateNotificationCount(nextActivities.length);
+};
+
+const addActivity = (message) => {
+    const activities = getStorage(STORAGE_KEYS.activities, []);
+    activities.unshift(message);
+    setStorage(STORAGE_KEYS.activities, activities.slice(0, 12));
+    renderActivityFeed(activities);
+    updateNotificationCount(activities.length);
+};
+
+const attachDashboardEvents = () => {
+    const searchInput = document.getElementById('dashboardSearch');
+    const notificationBtn = document.querySelector('.top-actions .icon-btn');
+
+    if (searchInput && !searchInput.dataset.initialized) {
+        searchInput.dataset.initialized = 'true';
+        searchInput.addEventListener('input', handleDashboardSearch);
+    }
+
+    if (notificationBtn && !notificationBtn.dataset.initialized) {
+        notificationBtn.dataset.initialized = 'true';
+        notificationBtn.addEventListener('click', () => showNotifications(getStorage(STORAGE_KEYS.activities, [])));
+    }
+};
+
+const handleDashboardSearch = (event) => {
+    const query = event.target.value.trim().toLowerCase();
+    if (!query) {
+        document.querySelectorAll('.activity-item.highlight').forEach((item) => item.classList.remove('highlight'));
+        return;
+    }
+    const assets = getStorage(STORAGE_KEYS.assets, []);
+    const employees = getStorage(STORAGE_KEYS.employees, []);
+
+    const assetMatch = assets.find((asset) => [asset.name, asset.id, asset.category, asset.location, asset.serial].some((value) => value.toLowerCase().includes(query)));
+    const employeeMatch = employees.find((employee) => [employee.name, employee.id, employee.role, employee.department, employee.email, employee.location].some((value) => value.toLowerCase().includes(query)));
+    const reportMatch = assets.find((asset) => [asset.name, asset.id, asset.category, asset.location, asset.status].some((value) => value.toLowerCase().includes(query)));
+
+    if (assetMatch) {
+        highlightSearchResult(assetMatch.name || assetMatch.id);
+        return;
+    }
+    if (employeeMatch) {
+        window.location.href = 'employees.html';
+        return;
+    }
+    if (reportMatch) {
+        window.location.href = 'reports.html';
+        return;
+    }
+};
+
+const highlightSearchResult = (text) => {
+    const searchInput = document.getElementById('dashboardSearch');
+    const activityItems = document.querySelectorAll('.activity-item');
+    activityItems.forEach((item) => {
+        if (item.textContent.toLowerCase().includes(text.toLowerCase())) {
+            item.classList.add('highlight');
+        } else {
+            item.classList.remove('highlight');
+        }
+    });
+    if (searchInput) {
+        searchInput.classList.add('search-result-highlight');
+        setTimeout(() => searchInput.classList.remove('search-result-highlight'), 1200);
+    }
+};
+
+const showNotifications = (activities) => {
+    const notificationPanel = document.getElementById('notificationPanel');
+    if (!notificationPanel) return;
+
+    notificationPanel.innerHTML = `
+        <div class="notification-header">
+            <strong>Recent notifications</strong>
+            <button class="icon-btn" aria-label="Close notifications"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <ul class="notification-list">
+            ${activities.slice(0, 6).map((activity) => `<li>${activity}</li>`).join('')}
+        </ul>
+    `;
+    notificationPanel.classList.toggle('visible');
+    notificationPanel.querySelector('.icon-btn')?.addEventListener('click', () => notificationPanel.classList.remove('visible'));
 };
 
 const createStatElement = (id, value) => {
@@ -375,11 +501,10 @@ const initializeAssetPage = () => {
             location: formData.get('location').trim(),
             condition: formData.get('condition'),
             status: formData.get('status'),
-            assignedTo: null,
         };
 
-        if (!assetData.id || !assetData.name) {
-            return showToast('Asset name and ID are required.');
+        if (!assetData.id || !assetData.name || !assetData.category || !assetData.serial || !assetData.purchaseDate || !assetData.location) {
+            return showToast('Please complete all fields.');
         }
 
         const assets = getStorage(STORAGE_KEYS.assets, []);
@@ -388,16 +513,31 @@ const initializeAssetPage = () => {
             if (exists) {
                 return showToast('Asset ID already exists.');
             }
-            assets.unshift(assetData);
-            saveActivity(`Added new asset: ${assetData.name}.`);
-            showToast('Asset added successfully.');
+            assets.unshift({ ...assetData, assignedTo: null });
+            saveActivity(`Asset Added: ${assetData.name}`);
+            showToast('Asset added successfully.', 'success');
         } else if (currentMode === 'edit') {
             const index = assets.findIndex((item) => item.id === editingAssetId);
             if (index >= 0) {
                 const existing = assets[index];
-                assets[index] = { ...existing, ...assetData, assignedTo: existing.assignedTo };
-                saveActivity(`Updated asset: ${assetData.name}.`);
-                showToast('Asset updated successfully.');
+                const duplicate = assets.find((item) => item.id === assetData.id && item.id !== editingAssetId);
+                if (duplicate) {
+                    return showToast('Another asset already uses that ID.');
+                }
+
+                const updatedAsset = {
+                    ...existing,
+                    ...assetData,
+                    assignedTo: assetData.status === 'Assigned' ? existing.assignedTo : null,
+                };
+                assets[index] = updatedAsset;
+
+                if (existing.status === 'Assigned' && updatedAsset.status !== 'Assigned') {
+                    removeAssetFromEmployees(existing.id);
+                }
+
+                saveActivity(`Asset Updated: ${assetData.name}`);
+                showToast('Asset updated successfully.', 'success');
             }
         }
 
@@ -427,17 +567,21 @@ const initializeAssetPage = () => {
             if (!confirmed) return;
             const updated = removeById(assets, assetId);
             setStorage(STORAGE_KEYS.assets, updated);
-            saveActivity(`Deleted asset: ${asset.name}.`);
-            showToast('Asset deleted successfully.');
+            removeAssetFromEmployees(assetId);
+            saveActivity(`Asset Deleted: ${asset.name}`);
+            showToast('Asset deleted successfully.', 'success');
             renderAssets();
             updateFilters();
         }
     };
 
-    const saveActivity = (message) => {
-        const activities = getStorage(STORAGE_KEYS.activities, []);
-        activities.unshift(`${message}`);
-        setStorage(STORAGE_KEYS.activities, activities.slice(0, 12));
+    const removeAssetFromEmployees = (assetId) => {
+        const employees = getStorage(STORAGE_KEYS.employees, []);
+        const updatedEmployees = employees.map((employee) => ({
+            ...employee,
+            assignedAssets: employee.assignedAssets.filter((id) => id !== assetId),
+        }));
+        setStorage(STORAGE_KEYS.employees, updatedEmployees);
     };
 
     updateFilters();
@@ -549,6 +693,7 @@ const initializeEmployeePage = () => {
                     <p><strong>Location:</strong> ${employee.location}</p>
                 </div>
                 <div class="action-buttons">
+                    <button class="secondary-btn" data-action="view" data-id="${employee.id}">View</button>
                     <button class="secondary-btn" data-action="edit" data-id="${employee.id}">Edit</button>
                     <button class="secondary-btn" data-action="delete" data-id="${employee.id}">Delete</button>
                     ${employee.assignedAssets.length ? `<button class="secondary-btn" data-action="return" data-id="${employee.id}">Return Asset</button>` : ''}
@@ -558,20 +703,28 @@ const initializeEmployeePage = () => {
         });
     };
 
-    const openEmployeeModal = (employee = null) => {
+    const openEmployeeModal = (employee = null, mode = 'create') => {
         const title = document.getElementById('employeeModalTitle');
         const submitBtn = employeeForm.querySelector('button[type="submit"]');
-        if (employee) {
-            editingEmployeeId = employee.id;
-            title.textContent = 'Edit Employee';
-            submitBtn.textContent = 'Update Employee';
-            fillEmployeeForm(employee);
-        } else {
-            editingEmployeeId = null;
+        editingEmployeeId = employee?.id || null;
+
+        if (mode === 'create') {
             title.textContent = 'Add Employee';
             submitBtn.textContent = 'Save Employee';
             employeeForm.reset();
+            employeeForm.querySelectorAll('input, select').forEach((field) => field.removeAttribute('disabled'));
+        } else if (mode === 'edit') {
+            title.textContent = 'Edit Employee';
+            submitBtn.textContent = 'Update Employee';
+            fillEmployeeForm(employee);
+            employeeForm.querySelectorAll('input, select').forEach((field) => field.removeAttribute('disabled'));
+        } else {
+            title.textContent = 'Employee Details';
+            submitBtn.textContent = 'Close';
+            fillEmployeeForm(employee);
+            employeeForm.querySelectorAll('input, select').forEach((field) => field.setAttribute('disabled', 'disabled'));
         }
+
         employeeModalOverlay.classList.remove('hidden');
     };
 
@@ -588,6 +741,10 @@ const initializeEmployeePage = () => {
 
     const saveEmployee = (event) => {
         event.preventDefault();
+        if (employeeForm.querySelector('button[type="submit"]').textContent === 'Close') {
+            return closeEmployeeModal();
+        }
+
         const formData = new FormData(employeeForm);
         const employeeData = {
             id: formData.get('id').trim(),
@@ -600,8 +757,8 @@ const initializeEmployeePage = () => {
             assignedAssets: [],
         };
 
-        if (!employeeData.id || !employeeData.name) {
-            return showToast('Employee name and ID are required.');
+        if (!employeeData.id || !employeeData.name || !employeeData.role || !employeeData.department || !employeeData.email || !employeeData.phone || !employeeData.location) {
+            return showToast('Please complete all employee fields.', 'error');
         }
 
         const employees = getStorage(STORAGE_KEYS.employees, []);
@@ -609,18 +766,30 @@ const initializeEmployeePage = () => {
             const index = employees.findIndex((item) => item.id === editingEmployeeId);
             if (index >= 0) {
                 const existing = employees[index];
+                const duplicate = employees.find((item) => item.id === employeeData.id && item.id !== editingEmployeeId);
+                if (duplicate) {
+                    return showToast('Employee ID already exists.', 'error');
+                }
                 employees[index] = { ...existing, ...employeeData, assignedAssets: existing.assignedAssets };
-                showToast('Employee updated successfully.');
-                saveActivity(`Updated employee profile: ${employeeData.name}.`);
+
+                if (employeeData.id !== editingEmployeeId) {
+                    const assets = getStorage(STORAGE_KEYS.assets, []).map((asset) =>
+                        asset.assignedTo === editingEmployeeId ? { ...asset, assignedTo: employeeData.id } : asset
+                    );
+                    setStorage(STORAGE_KEYS.assets, assets);
+                }
+
+                showToast('Employee updated successfully.', 'success');
+                saveActivity(`Employee Updated: ${employeeData.name}`);
             }
         } else {
             const exists = findById(employees, employeeData.id);
             if (exists) {
-                return showToast('Employee ID already exists.');
+                return showToast('Employee ID already exists.', 'error');
             }
             employees.unshift(employeeData);
-            showToast('Employee added successfully.');
-            saveActivity(`Added new employee: ${employeeData.name}.`);
+            showToast('Employee added successfully.', 'success');
+            saveActivity(`Employee Added: ${employeeData.name}`);
         }
         setStorage(STORAGE_KEYS.employees, employees);
         refreshEmployeeData();
@@ -636,8 +805,11 @@ const initializeEmployeePage = () => {
         const employee = findById(employees, employeeId);
         if (!employee) return;
 
+        if (action === 'view') {
+            openEmployeeModal(employee, 'view');
+        }
         if (action === 'edit') {
-            openEmployeeModal(employee);
+            openEmployeeModal(employee, 'edit');
         }
         if (action === 'delete') {
             const confirmed = confirm('Delete this employee and release assigned assets?');
@@ -650,8 +822,8 @@ const initializeEmployeePage = () => {
             );
             setStorage(STORAGE_KEYS.employees, updatedEmployees);
             setStorage(STORAGE_KEYS.assets, assets);
-            showToast('Employee deleted successfully.');
-            saveActivity(`Removed employee: ${employee.name}.`);
+            showToast('Employee deleted successfully.', 'success');
+            saveActivity(`Employee Deleted: ${employee.name}`);
             refreshEmployeeData();
         }
         if (action === 'return') {
@@ -676,6 +848,15 @@ const initializeEmployeePage = () => {
         const employeeSelect = assignForm.querySelector('[name="employeeId"]');
         const assetSelect = assignForm.querySelector('[name="assetId"]');
 
+        if (!employees.length) {
+            showToast('Add an employee before assigning assets.', 'error');
+            return;
+        }
+        if (!availableAssets.length) {
+            showToast('No available assets to assign.', 'error');
+            return;
+        }
+
         employeeSelect.innerHTML = '<option value="">Select employee</option>' + employees.map((employee) => `<option value="${employee.id}">${employee.name} (${employee.role})</option>`).join('');
         assetSelect.innerHTML = '<option value="">Select available asset</option>' + availableAssets.map((asset) => `<option value="${asset.id}">${asset.name} (${asset.category})</option>`).join('');
         assignModalOverlay.classList.remove('hidden');
@@ -688,7 +869,7 @@ const initializeEmployeePage = () => {
         const assetId = formData.get('assetId');
 
         if (!employeeId || !assetId) {
-            return showToast('Select both employee and asset.');
+            return showToast('Select both employee and asset.', 'error');
         }
 
         const employees = getStorage(STORAGE_KEYS.employees, []);
@@ -870,8 +1051,12 @@ const initializeReportsPage = () => {
 const initNavigationToggle = () => {
     const menuBtn = document.querySelector('.menu-toggle');
     const sidebar = document.querySelector('.sidebar');
+    const collapseBtn = document.getElementById('sidebarCollapseBtn');
     if (!menuBtn || !sidebar) return;
+
     menuBtn.addEventListener('click', () => sidebar.classList.toggle('open'));
+    collapseBtn?.addEventListener('click', () => sidebar.classList.toggle('collapsed'));
+
     document.addEventListener('click', (event) => {
         if (!sidebar.contains(event.target) && !menuBtn.contains(event.target)) {
             sidebar.classList.remove('open');
