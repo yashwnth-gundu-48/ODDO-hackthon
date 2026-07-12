@@ -82,7 +82,9 @@ The objective of AssetFlow Pro is to provide a simple, efficient, and user-frien
 ## 📸 Screenshots
 
 > *(Added screenshots of Login, Dashboard, Assets, Employees, and Reports here.)*
-<img width="1920" height="969" alt="{2C83B591-50C8-45DC-AA43-A168ECFD7198}" src="https://github.com/user-attachments/assets/6da9e8fc-c832-4ea1-9cf5-59be5008ad25" />
+<img width="1920" height="949" alt="{C9893312-0057-4C1D-B84D-D29401DB7C98}" src="https://github.com/user-attachments/assets/c4a4b74f-fd3d-4663-801c-0f6eb85e5602" />
+
+
 
 <img width="1920" height="969" alt="{429E4E11-452F-44B7-B398-D23A8C652D0A}" src="https://github.com/user-attachments/assets/8be8f56f-37dd-4450-82da-9691ece45efd" />
 
