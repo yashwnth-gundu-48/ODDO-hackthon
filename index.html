@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AssetFlow | Dashboard</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.6.0/css/all.min.css">
+</head>
+<body data-page="dashboard">
+    <div class="app-shell">
+        <aside class="sidebar">
+            <div class="brand">
+                <div class="brand-mark">AF</div>
+                <div>
+                    <h1>AssetFlow</h1>
+                    <p>Enterprise Asset Management</p>
+                </div>
+            </div>
+            <nav class="nav-links">
+                <a class="nav-link active" href="index.html">
+                    <i class="fa-solid fa-house"></i>
+                    <span>Dashboard</span>
+                </a>
+                <a class="nav-link" href="assets.html">
+                    <i class="fa-solid fa-box"></i>
+                    <span>Assets</span>
+                </a>
+                <a class="nav-link" href="employees.html">
+                    <i class="fa-solid fa-users"></i>
+                    <span>Employees</span>
+                </a>
+                <a class="nav-link" href="reports.html">
+                    <i class="fa-solid fa-chart-column"></i>
+                    <span>Reports</span>
+                </a>
+            </nav>
+        </aside>
+
+        <div class="content-area">
+            <header class="topbar">
+                <button class="menu-toggle" aria-label="Toggle menu">
+                    <i class="fa-solid fa-bars"></i>
+                </button>
+                <form class="top-search" onsubmit="return false;">
+                    <input type="search" placeholder="Search assets, employees, reports..." id="dashboardSearch">
+                    <button><i class="fa-solid fa-magnifying-glass"></i></button>
+                </form>
+                <div class="top-actions">
+                    <button class="icon-btn" aria-label="Notifications">
+                        <i class="fa-regular fa-bell"></i>
+                        <span class="badge">3</span>
+                    </button>
+                    <button class="profile-btn" aria-label="Profile">
+                        <span class="avatar">AF</span>
+                        <div>
+                            <span>Admin</span>
+                            <small>Operations</small>
+                        </div>
+                    </button>
+                </div>
+            </header>
+
+            <main class="page-content">
+                <section class="page-header">
+                    <div>
+                        <p class="eyebrow">Company Overview</p>
+                        <h2>Dashboard</h2>
+                    </div>
+                    <nav class="breadcrumbs">
+                        <a href="index.html">Home</a>
+                        <span>Dashboard</span>
+                    </nav>
+                </section>
+
+                <section class="stats-grid">
+                    <article class="glass-card primary-card">
+                        <div class="card-icon blue">
+                            <i class="fa-solid fa-layer-group"></i>
+                        </div>
+                        <div>
+                            <p>Total Assets</p>
+                            <h3 id="totalAssets">0</h3>
+                        </div>
+                    </article>
+                    <article class="glass-card">
+                        <div class="card-icon cyan">
+                            <i class="fa-solid fa-box-open"></i>
+                        </div>
+                        <div>
+                            <p>Available</p>
+                            <h3 id="availableAssets">0</h3>
+                        </div>
+                    </article>
+                    <article class="glass-card">
+                        <div class="card-icon indigo">
+                            <i class="fa-solid fa-check-to-slot"></i>
+                        </div>
+                        <div>
+                            <p>Assigned</p>
+                            <h3 id="assignedAssets">0</h3>
+                        </div>
+                    </article>
+                    <article class="glass-card">
+                        <div class="card-icon violet">
+                            <i class="fa-solid fa-user-group"></i>
+                        </div>
+                        <div>
+                            <p>Employees</p>
+                            <h3 id="employeesCount">0</h3>
+                        </div>
+                    </article>
+                </section>
+
+                <section class="actions-grid">
+                    <button class="primary-btn" onclick="location.href='assets.html'">
+                        <i class="fa-solid fa-plus"></i>
+                        Add Asset
+                    </button>
+                    <button class="secondary-btn" onclick="location.href='employees.html'">
+                        <i class="fa-solid fa-user-plus"></i>
+                        Add Employee
+                    </button>
+                    <button class="secondary-btn" onclick="location.href='reports.html'">
+                        <i class="fa-solid fa-chart-line"></i>
+                        View Reports
+                    </button>
+                </section>
+
+                <section class="dashboard-panels">
+                    <article class="glass-card panel-card">
+                        <div class="panel-header">
+                            <div>
+                                <h3>Recent Activity</h3>
+                                <p>Latest asset operations and updates.</p>
+                            </div>
+                            <button class="text-btn" onclick="document.getElementById('dashboardSearch').focus();">Search Activity</button>
+                        </div>
+                        <ul class="activity-list" id="recentActivity">
+                            <!-- Activity items generated by JavaScript -->
+                        </ul>
+                    </article>
+                    <article class="glass-card panel-card">
+                        <div class="panel-header">
+                            <div>
+                                <h3>Live Asset Summary</h3>
+                                <p>Top categories and current state.</p>
+                            </div>
+                        </div>
+                        <div class="summary-blocks">
+                            <div>
+                                <span>Inventory categories</span>
+                                <strong id="categoryCount">0</strong>
+                            </div>
+                            <div>
+                                <span>Active assignments</span>
+                                <strong id="activeAssignments">0</strong>
+                            </div>
+                            <div>
+                                <span>Pending reviews</span>
+                                <strong>4</strong>
+                            </div>
+                        </div>
+                    </article>
+                </section>
+            </main>
+        </div>
+    </div>
+
+    <div class="toast-container" id="toastContainer"></div>
+    <div class="loading-overlay" id="loadingOverlay">
+        <div class="loader"></div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js" integrity="sha512-IKnqszelJwYuY6Q1Bek6KJ3HtvG5kEZLJ0mh8gJbkElmr5nSBGCp++jGVGlme7x6W7d62uuX3/jI+U72on9x8Q==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+    <script src="script.js"></script>
+</body>
+</html>
