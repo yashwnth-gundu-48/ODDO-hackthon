@@ -2,6 +2,7 @@ const STORAGE_KEYS = {
     assets: 'assetflow_assets',
     employees: 'assetflow_employees',
     activities: 'assetflow_activities',
+    notifications: 'assetflow_notifications',
     dashboardStats: 'assetflow_dashboard_stats',
 };
 
@@ -12,9 +13,12 @@ const SAMPLE_ASSETS = [
         category: 'Laptop',
         serial: 'DL5430-2981',
         purchaseDate: '2023-09-12',
+        warrantyStart: '2023-09-12',
+        warrantyEnd: '2025-09-12',
         location: 'Head Office - 4th Floor',
         condition: 'Excellent',
         status: 'Available',
+        maintenanceCount: 1,
         assignedTo: null,
     },
     {
@@ -23,9 +27,12 @@ const SAMPLE_ASSETS = [
         category: 'Printer',
         serial: 'HP-M428-5502',
         purchaseDate: '2024-02-18',
+        warrantyStart: '2024-02-18',
+        warrantyEnd: '2025-02-18',
         location: 'Marketing Team',
         condition: 'Good',
         status: 'Assigned',
+        maintenanceCount: 2,
         assignedTo: 'EMP-1002',
     },
     {
@@ -34,9 +41,12 @@ const SAMPLE_ASSETS = [
         category: 'Tablet',
         serial: 'IPAD-23-77A',
         purchaseDate: '2024-01-22',
+        warrantyStart: '2024-01-22',
+        warrantyEnd: '2025-01-22',
         location: 'Sales Team',
         condition: 'Excellent',
         status: 'Available',
+        maintenanceCount: 0,
         assignedTo: null,
     },
     {
@@ -45,9 +55,12 @@ const SAMPLE_ASSETS = [
         category: 'Monitor',
         serial: 'TNV-27T-994',
         purchaseDate: '2023-11-08',
+        warrantyStart: '2023-11-08',
+        warrantyEnd: '2024-11-08',
         location: 'Admin Desk',
         condition: 'Good',
         status: 'In Repair',
+        maintenanceCount: 3,
         assignedTo: null,
     },
 ];
@@ -96,6 +109,56 @@ const setStorage = (key, value) => {
     localStorage.setItem(key, JSON.stringify(value ?? []));
 };
 
+const calculateAssetHealth = (asset) => {
+    if (!asset?.purchaseDate) return 0;
+    const purchase = new Date(asset.purchaseDate);
+    if (Number.isNaN(purchase.getTime())) return 0;
+
+    const ageYears = Math.max(0, (Date.now() - purchase.getTime()) / 31536000000);
+    const maintenanceCount = Number(asset.maintenanceCount || 0);
+    const agePenalty = ageYears * 8;
+    const maintenancePenalty = maintenanceCount * 6;
+    return Math.round(Math.max(0, Math.min(100, 100 - agePenalty - maintenancePenalty)));
+};
+
+const getHealthStatus = (score) => {
+    if (score >= 85) return { label: 'Excellent', css: 'excellent', icon: '🟢' };
+    if (score >= 65) return { label: 'Good', css: 'good', icon: '🟡' };
+    if (score >= 45) return { label: 'Warning', css: 'warning', icon: '🟠' };
+    return { label: 'Critical', css: 'critical', icon: '🔴' };
+};
+
+const getWarrantyStatus = (asset) => {
+    const today = new Date();
+    const end = asset.warrantyEnd ? new Date(asset.warrantyEnd) : null;
+    if (!end || Number.isNaN(end.getTime()) || today > end) {
+        return { label: 'Expired', css: 'critical', icon: '🔴' };
+    }
+    const diffDays = Math.ceil((end - today) / 86400000);
+    if (diffDays <= 30) {
+        return { label: 'Expiring Soon', css: 'warning', icon: '🟡' };
+    }
+    return { label: 'Active', css: 'excellent', icon: '🟢' };
+};
+
+const getWarrantyRemaining = (asset) => {
+    const today = new Date();
+    const end = asset.warrantyEnd ? new Date(asset.warrantyEnd) : null;
+    if (!end || Number.isNaN(end.getTime())) return 'Expired';
+    if (today > end) return 'Expired';
+    const diffDays = Math.ceil((end - today) / 86400000);
+    return `${diffDays} day${diffDays === 1 ? '' : 's'}`;
+};
+
+const normalizeAssetStorage = () => {
+    const assets = getStorage(STORAGE_KEYS.assets, []).map((asset) => ({
+        ...asset,
+        maintenanceCount: Number(asset.maintenanceCount || 0),
+        healthScore: calculateAssetHealth(asset),
+    }));
+    setStorage(STORAGE_KEYS.assets, assets);
+};
+
 const formatDate = (dateString) => {
     if (!dateString) return '';
     return new Date(dateString).toLocaleDateString('en-IN', {
@@ -105,22 +168,42 @@ const formatDate = (dateString) => {
     });
 };
 
+const TOAST_ICONS = {
+    success: '✔',
+    error: '✖',
+    warning: '⚠',
+    info: 'ℹ',
+};
+
 const showToast = (message, type = 'info') => {
     const container = document.getElementById('toastContainer');
     if (!container) return;
     const toast = document.createElement('div');
     toast.className = `toast toast-${type}`;
-    toast.textContent = message;
+    toast.setAttribute('role', 'status');
+    toast.setAttribute('aria-live', 'polite');
+    toast.innerHTML = `
+        <span class="toast-icon" aria-hidden="true">${TOAST_ICONS[type] || TOAST_ICONS.info}</span>
+        <span class="toast-message">${message}</span>
+        <button type="button" class="toast-close" aria-label="Dismiss notification">×</button>
+    `;
     container.appendChild(toast);
-    setTimeout(() => toast.remove(), 3200);
+
+    const timeoutId = window.setTimeout(() => toast.remove(), 4200);
+    toast.querySelector('.toast-close')?.addEventListener('click', () => {
+        window.clearTimeout(timeoutId);
+        toast.remove();
+    });
 };
 
 const showLoading = () => {
-    document.getElementById('loadingOverlay')?.classList.remove('hidden');
+    const overlay = document.getElementById('loadingOverlay');
+    overlay?.classList.remove('hidden');
 };
 
 const hideLoading = () => {
-    document.getElementById('loadingOverlay')?.classList.add('hidden');
+    const overlay = document.getElementById('loadingOverlay');
+    overlay?.classList.add('hidden');
 };
 
 const findById = (items, id) => items.find((item) => item.id === id);
@@ -136,6 +219,216 @@ const initLocalStorage = () => {
     if (!localStorage.getItem(STORAGE_KEYS.activities)) {
         setStorage(STORAGE_KEYS.activities, SAMPLE_ACTIVITIES);
     }
+    if (!localStorage.getItem(STORAGE_KEYS.notifications)) {
+        setStorage(STORAGE_KEYS.notifications, []);
+    }
+    normalizeAssetStorage();
+    normalizeActivityStorage();
+    normalizeNotificationStorage();
+};
+
+const normalizeActivityStorage = () => {
+    const activities = getStorage(STORAGE_KEYS.activities, []);
+    const normalized = activities.map((entry, index) => {
+        if (typeof entry === 'string') {
+            return {
+                message: entry,
+                timestamp: new Date(Date.now() - index * 60000).toISOString(),
+            };
+        }
+        return entry;
+    });
+    setStorage(STORAGE_KEYS.activities, normalized);
+};
+
+const normalizeNotificationStorage = () => {
+    const notifications = getStorage(STORAGE_KEYS.notifications, []);
+    const normalized = notifications.map((entry, index) => {
+        if (typeof entry === 'string') {
+            return {
+                id: `notif-${Date.now()}-${index}`,
+                type: 'info',
+                message: entry,
+                timestamp: new Date(Date.now() - index * 60000).toISOString(),
+                unread: true,
+            };
+        }
+        return {
+            unread: true,
+            id: entry.id || `notif-${Date.now()}-${index}`,
+            type: entry.type || 'info',
+            message: entry.message || '',
+            timestamp: entry.timestamp || new Date().toISOString(),
+        };
+    });
+    setStorage(STORAGE_KEYS.notifications, normalized);
+};
+
+const getActivityMessage = (activity) => (typeof activity === 'string' ? activity : activity.message || '');
+const getActivityTimestamp = (activity) => (typeof activity === 'string' ? null : activity.timestamp || null);
+const getActivityAssetId = (activity) => (typeof activity === 'string' ? null : activity.assetId || null);
+
+const getNotificationLabel = (type) => {
+    switch (type) {
+        case 'assigned': return 'Asset Assigned';
+        case 'maintenance': return 'Maintenance';
+        case 'warranty': return 'Warranty Expiry';
+        case 'returned': return 'Asset Returned';
+        case 'employee': return 'Employee Added';
+        default: return 'Update';
+    }
+};
+
+const createNotification = ({ type, message, assetId = null, employeeId = null }) => {
+    const notifications = getStorage(STORAGE_KEYS.notifications, []);
+    const newNotification = {
+        id: `notif-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+        type,
+        message,
+        assetId,
+        employeeId,
+        timestamp: new Date().toISOString(),
+        unread: true,
+    };
+    const nextNotifications = [newNotification, ...notifications].slice(0, 24);
+    setStorage(STORAGE_KEYS.notifications, nextNotifications);
+    updateNotificationCount(nextNotifications.filter((note) => note.unread).length);
+    return newNotification;
+};
+
+const markAllNotificationsRead = () => {
+    const notifications = getStorage(STORAGE_KEYS.notifications, []).map((note) => ({ ...note, unread: false }));
+    setStorage(STORAGE_KEYS.notifications, notifications);
+    updateNotificationCount(0);
+    renderNotificationCenter();
+};
+
+const clearNotifications = () => {
+    setStorage(STORAGE_KEYS.notifications, []);
+    updateNotificationCount(0);
+    renderNotificationCenter();
+};
+
+const ensureWarrantyExpiryNotifications = () => {
+    const assets = getStorage(STORAGE_KEYS.assets, []);
+    const notifications = getStorage(STORAGE_KEYS.notifications, []);
+    const existingWarrantyAssetIds = notifications
+        .filter((note) => note.type === 'warranty' && note.assetId)
+        .map((note) => note.assetId);
+
+    assets.forEach((asset) => {
+        const warranty = getWarrantyStatus(asset);
+        if (['Expiring Soon', 'Expired'].includes(warranty.label) && asset.id && !existingWarrantyAssetIds.includes(asset.id)) {
+            createNotification({
+                type: 'warranty',
+                message: `Warranty ${warranty.label.toLowerCase()} for ${asset.name}.`,
+                assetId: asset.id,
+            });
+        }
+    });
+};
+
+const renderNotificationCenter = () => {
+    const notificationPanel = document.getElementById('notificationPanel');
+    if (!notificationPanel) return;
+
+    const notifications = getStorage(STORAGE_KEYS.notifications, []);
+    const unreadCount = notifications.filter((note) => note.unread).length;
+
+    notificationPanel.innerHTML = `
+        <div class="notification-header">
+            <div>
+                <strong>Notification Center</strong>
+                <p>${unreadCount} unread</p>
+            </div>
+            <button class="icon-btn" aria-label="Close notifications"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <div class="notification-toolbar">
+            <button class="text-btn" id="markAllReadBtn">Mark all read</button>
+            <button class="text-btn" id="clearNotificationsBtn">Clear notifications</button>
+        </div>
+        <ul class="notification-list">
+            ${notifications.length === 0 ? '<li class="notification-empty">No notifications yet.</li>' : notifications.map((note) => `
+                <li class="notification-item ${note.unread ? 'unread' : ''}">
+                    <div class="notification-top">
+                        <span class="notification-type">${getNotificationLabel(note.type)}</span>
+                        <span class="notification-time">${new Date(note.timestamp).toLocaleString('en-IN', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</span>
+                    </div>
+                    <p>${note.message}</p>
+                </li>
+            `).join('')}
+        </ul>
+    `;
+
+    notificationPanel.classList.add('visible');
+    notificationPanel.querySelector('.icon-btn')?.addEventListener('click', () => notificationPanel.classList.remove('visible'));
+    document.getElementById('markAllReadBtn')?.addEventListener('click', markAllNotificationsRead);
+    document.getElementById('clearNotificationsBtn')?.addEventListener('click', clearNotifications);
+};
+
+const initNotificationButton = () => {
+    const notificationBtn = document.querySelector('.top-actions .icon-btn[aria-label="Notifications"]');
+    if (!notificationBtn || notificationBtn.dataset.initialized === 'true') return;
+    notificationBtn.dataset.initialized = 'true';
+    notificationBtn.addEventListener('click', showNotificationCenter);
+};
+
+const showNotificationCenter = () => {
+    renderNotificationCenter();
+    updateNotificationCount(getStorage(STORAGE_KEYS.notifications, []).filter((note) => note.unread).length);
+};
+
+const parseTimelineEventType = (message) => {
+    const lower = message.toLowerCase();
+    if (lower.includes('asset added') || lower.includes('purchased')) return 'Purchased';
+    if (lower.includes('assigned') && !lower.includes('assigned again')) return 'Assigned';
+    if (lower.includes('returned')) return 'Returned';
+    if (lower.includes('maintenance')) return 'Maintenance';
+    return 'Update';
+};
+
+const getAssetTimeline = (asset) => {
+    const activities = getStorage(STORAGE_KEYS.activities, []);
+    const matches = activities
+        .filter((activity) => {
+            const message = getActivityMessage(activity).toLowerCase();
+            return (
+                getActivityAssetId(activity) === asset.id ||
+                message.includes(asset.id.toLowerCase()) ||
+                message.includes(asset.name.toLowerCase())
+            );
+        })
+        .map((activity) => ({
+            timestamp: getActivityTimestamp(activity),
+            message: getActivityMessage(activity),
+            type: parseTimelineEventType(getActivityMessage(activity)),
+        }))
+        .sort((a, b) => new Date(a.timestamp || 0) - new Date(b.timestamp || 0));
+    return matches;
+};
+
+const renderAssetTimeline = (asset) => {
+    const timelineSection = document.getElementById('assetTimelineSection');
+    const timelineList = document.getElementById('assetTimelineList');
+    if (!timelineSection || !timelineList) return;
+
+    const timeline = getAssetTimeline(asset);
+    timelineSection.classList.remove('hidden');
+
+    if (!timeline.length) {
+        timelineList.innerHTML = '<li class="timeline-item empty">No timeline events found for this asset yet.</li>';
+        return;
+    }
+
+    timelineList.innerHTML = timeline
+        .map((entry) => `
+            <li class="timeline-item">
+                <span class="timeline-title">${entry.type}</span>
+                <span>${entry.message}</span>
+                ${entry.timestamp ? `<span class="timeline-meta">${formatDate(entry.timestamp)}</span>` : ''}
+            </li>
+        `)
+        .join('');
 };
 
 const seedAssignedAssets = () => {
@@ -145,6 +438,13 @@ const seedAssignedAssets = () => {
         employee.assignedAssets = assets.filter((asset) => asset.assignedTo === employee.id).map((item) => item.id);
     });
     setStorage(STORAGE_KEYS.employees, employees);
+};
+
+const getAverageHealth = (assets) => {
+    if (!assets.length) return 0;
+    const scores = assets.map((asset) => asset.healthScore ?? calculateAssetHealth(asset));
+    const average = scores.reduce((sum, value) => sum + Number(value || 0), 0) / scores.length;
+    return Math.round(average);
 };
 
 const renderDashboard = () => {
@@ -159,25 +459,21 @@ const renderDashboard = () => {
         pending: assets.filter((asset) => asset.status === 'In Repair').length,
         employees: employees.length,
         categories: new Set(assets.map((asset) => asset.category)).size,
+        averageHealth: `${getAverageHealth(assets)}%`,
+        warrantyExpiringSoon: assets.filter((asset) => getWarrantyStatus(asset).label === 'Expiring Soon').length,
     };
 
     setStorage(STORAGE_KEYS.dashboardStats, stats);
     updateDashboardStats(stats);
 
     renderActivityFeed(activities);
-    updateNotificationCount(activities.length);
+    updateNotificationCount(getStorage(STORAGE_KEYS.notifications, []).filter((note) => note.unread).length);
     attachDashboardEvents();
 };
 
-window.addEventListener('storage', ({ key }) => {
-    if ([STORAGE_KEYS.assets, STORAGE_KEYS.employees, STORAGE_KEYS.activities].includes(key)) {
-        renderDashboard();
-    }
-});
-
 window.addEventListener('focus', renderDashboard);
 
-const updateDashboardStats = ({ total, available, assigned, employees, categories, pending }) => {
+const updateDashboardStats = ({ total, available, assigned, employees, categories, pending, averageHealth, warrantyExpiringSoon }) => {
     const statMap = {
         totalAssets: total,
         availableAssets: available,
@@ -186,6 +482,8 @@ const updateDashboardStats = ({ total, available, assigned, employees, categorie
         categoryCount: categories,
         activeAssignments: assigned,
         pendingReviews: pending,
+        averageHealth,
+        warrantyExpiringSoon,
     };
 
     Object.entries(statMap).forEach(([id, value]) => {
@@ -204,7 +502,7 @@ const renderActivityFeed = (activities) => {
     activities.slice(0, 6).forEach((activity) => {
         const li = document.createElement('li');
         li.className = 'activity-item';
-        li.textContent = activity;
+        li.textContent = getActivityMessage(activity);
         activityList.appendChild(li);
     });
 };
@@ -212,28 +510,44 @@ const renderActivityFeed = (activities) => {
 const updateNotificationCount = (count) => {
     const badge = document.querySelector('.top-actions .badge');
     if (!badge) return;
-    badge.textContent = count;
+    if (count <= 0) {
+        badge.style.display = 'none';
+        badge.textContent = '0';
+    } else {
+        badge.style.display = 'grid';
+        badge.textContent = count;
+    }
 };
 
-const saveActivity = (message) => {
+const saveActivity = (message, assetId = null) => {
     const activities = getStorage(STORAGE_KEYS.activities, []);
-    const nextActivities = [message, ...activities].slice(0, 12);
+    const activityEntry = {
+        message: typeof message === 'string' ? message : message.message,
+        timestamp: typeof message === 'object' && message.timestamp ? message.timestamp : new Date().toISOString(),
+        assetId: assetId || (typeof message === 'object' ? message.assetId : null),
+    };
+    const nextActivities = [activityEntry, ...activities].slice(0, 12);
     setStorage(STORAGE_KEYS.activities, nextActivities);
     renderActivityFeed(nextActivities);
-    updateNotificationCount(nextActivities.length);
+    updateNotificationCount(getStorage(STORAGE_KEYS.notifications, []).filter((note) => note.unread).length);
 };
 
-const addActivity = (message) => {
+const addActivity = (message, assetId = null) => {
     const activities = getStorage(STORAGE_KEYS.activities, []);
-    activities.unshift(message);
-    setStorage(STORAGE_KEYS.activities, activities.slice(0, 12));
-    renderActivityFeed(activities);
-    updateNotificationCount(activities.length);
+    const activityEntry = {
+        message: typeof message === 'string' ? message : message.message,
+        timestamp: typeof message === 'object' && message.timestamp ? message.timestamp : new Date().toISOString(),
+        assetId: assetId || (typeof message === 'object' ? message.assetId : null),
+    };
+    const nextActivities = [activityEntry, ...activities].slice(0, 12);
+    setStorage(STORAGE_KEYS.activities, nextActivities);
+    renderActivityFeed(nextActivities);
+    updateNotificationCount(getStorage(STORAGE_KEYS.notifications, []).filter((note) => note.unread).length);
 };
 
 const attachDashboardEvents = () => {
     const searchInput = document.getElementById('dashboardSearch');
-    const notificationBtn = document.querySelector('.top-actions .icon-btn');
+    const notificationBtn = document.querySelector('.top-actions .icon-btn[aria-label="Notifications"]');
 
     if (searchInput && !searchInput.dataset.initialized) {
         searchInput.dataset.initialized = 'true';
@@ -242,7 +556,7 @@ const attachDashboardEvents = () => {
 
     if (notificationBtn && !notificationBtn.dataset.initialized) {
         notificationBtn.dataset.initialized = 'true';
-        notificationBtn.addEventListener('click', () => showNotifications(getStorage(STORAGE_KEYS.activities, [])));
+        notificationBtn.addEventListener('click', showNotificationCenter);
     }
 };
 
@@ -289,23 +603,6 @@ const highlightSearchResult = (text) => {
     }
 };
 
-const showNotifications = (activities) => {
-    const notificationPanel = document.getElementById('notificationPanel');
-    if (!notificationPanel) return;
-
-    notificationPanel.innerHTML = `
-        <div class="notification-header">
-            <strong>Recent notifications</strong>
-            <button class="icon-btn" aria-label="Close notifications"><i class="fa-solid fa-xmark"></i></button>
-        </div>
-        <ul class="notification-list">
-            ${activities.slice(0, 6).map((activity) => `<li>${activity}</li>`).join('')}
-        </ul>
-    `;
-    notificationPanel.classList.toggle('visible');
-    notificationPanel.querySelector('.icon-btn')?.addEventListener('click', () => notificationPanel.classList.remove('visible'));
-};
-
 const createStatElement = (id, value) => {
     const element = document.createElement('h3');
     element.id = id;
@@ -328,6 +625,61 @@ const initializeAssetPage = () => {
     let showCards = false;
     let currentMode = 'create';
     let editingAssetId = null;
+    const qrSection = document.getElementById('assetQrSection');
+    const qrCanvas = document.getElementById('assetQrCanvas');
+    const downloadQrBtn = document.getElementById('downloadQrBtn');
+    const printQrBtn = document.getElementById('printQrBtn');
+
+    const getAssignedEmployeeName = (asset) => {
+        if (!asset?.assignedTo) return 'Unassigned';
+        const employees = getStorage(STORAGE_KEYS.employees, []);
+        const employee = findById(employees, asset.assignedTo);
+        return employee?.name || 'Unassigned';
+    };
+
+    const getAssetQrText = (asset) => {
+        const employeeName = getAssignedEmployeeName(asset);
+        return [
+            `Asset ID: ${asset.id}`,
+            `Asset Name: ${asset.name}`,
+            `Status: ${asset.status}`,
+            `Location: ${asset.location}`,
+            `Employee: ${employeeName}`,
+        ].join('\n');
+    };
+
+    const renderAssetQr = (asset) => {
+        if (!asset || !qrCanvas) return;
+        const qr = new QRious({
+            element: qrCanvas,
+            value: getAssetQrText(asset),
+            size: 260,
+            background: '#ffffff',
+            foreground: '#111827',
+            level: 'H',
+        });
+        return qr;
+    };
+
+    const downloadAssetQr = () => {
+        if (!qrCanvas) return;
+        const link = document.createElement('a');
+        link.href = qrCanvas.toDataURL('image/png');
+        link.download = `asset-${editingAssetId || 'qr'}.png`;
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+    };
+
+    const printAssetQr = () => {
+        if (!qrCanvas) return;
+        const printWindow = window.open('', '_blank');
+        if (!printWindow) return;
+        printWindow.document.write(`<!doctype html><html><head><title>Print Asset QR</title><style>body{margin:0;display:flex;justify-content:center;align-items:center;height:100vh;}img{max-width:100%;max-height:100vh;}</style></head><body><img src="${qrCanvas.toDataURL('image/png')}" alt="Asset QR Code"></body></html>`);
+        printWindow.document.close();
+        printWindow.focus();
+        printWindow.onload = () => printWindow.print();
+    };
 
     const updateFilters = () => {
         assetCategoryFilter.innerHTML = '<option value="all">All Categories</option>';
@@ -386,7 +738,14 @@ const initializeAssetPage = () => {
         const tbody = table.querySelector('tbody');
         if (filtered.length === 0) {
             const emptyRow = document.createElement('tr');
-            emptyRow.innerHTML = '<td colspan="6">No matching assets found.</td>';
+            emptyRow.innerHTML = `
+                <td colspan="6">
+                    <div class="empty-state-row">
+                        <p><strong>No assets found</strong></p>
+                        <p>Try adjusting the search, filters, or add a new asset.</p>
+                    </div>
+                </td>
+            `;
             tbody.appendChild(emptyRow);
         } else {
             filtered.forEach((asset) => {
@@ -401,6 +760,7 @@ const initializeAssetPage = () => {
                     <td>
                         <div class="action-buttons">
                             <button class="secondary-btn" data-action="view" data-id="${asset.id}">View</button>
+                            <button class="secondary-btn" data-action="qr" data-id="${asset.id}">QR</button>
                             <button class="secondary-btn" data-action="edit" data-id="${asset.id}">Edit</button>
                             <button class="secondary-btn" data-action="delete" data-id="${asset.id}">Delete</button>
                         </div>
@@ -412,9 +772,23 @@ const initializeAssetPage = () => {
 
         tableWrap.appendChild(table);
 
-        filtered.forEach((asset) => {
-            const card = document.createElement('article');
-            card.className = 'asset-card';
+        if (filtered.length === 0) {
+            const emptyCard = document.createElement('article');
+            emptyCard.className = 'asset-card empty-card';
+            emptyCard.innerHTML = `
+                <div>
+                    <h4>No assets to display</h4>
+                    <p>Switch to table view or add a new asset to populate the catalog.</p>
+                </div>
+            `;
+            cardsWrap.appendChild(emptyCard);
+        } else {
+            filtered.forEach((asset) => {
+                const card = document.createElement('article');
+                card.className = 'asset-card';
+            const statusClass = asset.status === 'Assigned' ? 'assigned' : asset.status === 'In Repair' ? 'repair' : '';
+            const health = getHealthStatus(asset.healthScore || calculateAssetHealth(asset));
+            const warranty = getWarrantyStatus(asset);
             card.innerHTML = `
                 <div>
                     <h4>${asset.name}</h4>
@@ -425,15 +799,19 @@ const initializeAssetPage = () => {
                     <p><strong>Serial:</strong> ${asset.serial}</p>
                     <p><strong>Status:</strong> <span class="status-pill ${statusClass}">${asset.status}</span></p>
                     <p><strong>Location:</strong> ${asset.location}</p>
+                    <p><strong>Warranty:</strong> <span class="health-pill ${warranty.css}">${warranty.icon} ${warranty.label} (${getWarrantyRemaining(asset)})</span></p>
+                    <p><strong>Health:</strong> <span class="health-pill ${health.css}">${health.icon} ${health.label} (${asset.healthScore || calculateAssetHealth(asset)}%)</span></p>
                 </div>
                 <div class="action-buttons">
                     <button class="secondary-btn" data-action="view" data-id="${asset.id}">View</button>
+                    <button class="secondary-btn" data-action="qr" data-id="${asset.id}">QR</button>
                     <button class="secondary-btn" data-action="edit" data-id="${asset.id}">Edit</button>
                     <button class="secondary-btn" data-action="delete" data-id="${asset.id}">Delete</button>
                 </div>
             `;
             cardsWrap.appendChild(card);
-        });
+            });
+        }
     };
 
     const openModal = (mode, asset = null) => {
@@ -448,16 +826,21 @@ const initializeAssetPage = () => {
             submitButton.textContent = 'Save Asset';
             assetForm.reset();
             inputs.forEach((field) => field.removeAttribute('disabled'));
+            qrSection?.classList.add('hidden');
         } else if (mode === 'edit') {
             modalTitle.textContent = 'Edit Asset';
             submitButton.textContent = 'Update Asset';
             populateAssetForm(asset);
             inputs.forEach((field) => field.removeAttribute('disabled'));
+            qrSection?.classList.add('hidden');
         } else if (mode === 'view') {
             modalTitle.textContent = 'Asset Details';
             submitButton.textContent = 'Close';
             populateAssetForm(asset);
             inputs.forEach((field) => field.setAttribute('disabled', 'disabled'));
+            qrSection?.classList.remove('hidden');
+            renderAssetQr(asset);
+            renderAssetTimeline(asset);
         }
 
         assetModalOverlay.classList.remove('hidden');
@@ -475,7 +858,12 @@ const initializeAssetPage = () => {
             category: asset.category,
             serial: asset.serial,
             purchaseDate: asset.purchaseDate,
+            warrantyStart: asset.warrantyStart || '',
+            warrantyEnd: asset.warrantyEnd || '',
             location: asset.location,
+            maintenanceCount: asset.maintenanceCount || 0,
+            warrantyRemaining: `${getWarrantyRemaining(asset)}`,
+            healthScore: `${asset.healthScore || 0}%`,
             condition: asset.condition,
             status: asset.status,
         };
@@ -498,7 +886,10 @@ const initializeAssetPage = () => {
             category: formData.get('category').trim(),
             serial: formData.get('serial').trim(),
             purchaseDate: formData.get('purchaseDate'),
+            warrantyStart: formData.get('warrantyStart'),
+            warrantyEnd: formData.get('warrantyEnd'),
             location: formData.get('location').trim(),
+            maintenanceCount: Number(formData.get('maintenanceCount') || 0),
             condition: formData.get('condition'),
             status: formData.get('status'),
         };
@@ -513,8 +904,8 @@ const initializeAssetPage = () => {
             if (exists) {
                 return showToast('Asset ID already exists.');
             }
-            assets.unshift({ ...assetData, assignedTo: null });
-            saveActivity(`Asset Added: ${assetData.name}`);
+            assets.unshift({ ...assetData, assignedTo: null, healthScore: calculateAssetHealth(assetData) });
+            saveActivity(`Asset Added: ${assetData.name}`, assetData.id);
             showToast('Asset added successfully.', 'success');
         } else if (currentMode === 'edit') {
             const index = assets.findIndex((item) => item.id === editingAssetId);
@@ -529,14 +920,36 @@ const initializeAssetPage = () => {
                     ...existing,
                     ...assetData,
                     assignedTo: assetData.status === 'Assigned' ? existing.assignedTo : null,
+                    healthScore: calculateAssetHealth(assetData),
                 };
                 assets[index] = updatedAsset;
 
                 if (existing.status === 'Assigned' && updatedAsset.status !== 'Assigned') {
                     removeAssetFromEmployees(existing.id);
+                    createNotification({
+                        type: 'returned',
+                        message: `${assetData.name} marked as returned.`,
+                        assetId: assetData.id,
+                    });
                 }
 
-                saveActivity(`Asset Updated: ${assetData.name}`);
+                if (existing.status !== 'In Repair' && assetData.status === 'In Repair') {
+                    saveActivity(`Maintenance started for ${assetData.name}.`, assetData.id);
+                    createNotification({
+                        type: 'maintenance',
+                        message: `Maintenance started for ${assetData.name}.`,
+                        assetId: assetData.id,
+                    });
+                } else if (assetData.maintenanceCount > existing.maintenanceCount) {
+                    saveActivity(`Maintenance logged for ${assetData.name}.`, assetData.id);
+                    createNotification({
+                        type: 'maintenance',
+                        message: `Maintenance logged for ${assetData.name}.`,
+                        assetId: assetData.id,
+                    });
+                }
+
+                saveActivity(`Asset Updated: ${assetData.name}`, assetData.id);
                 showToast('Asset updated successfully.', 'success');
             }
         }
@@ -557,6 +970,9 @@ const initializeAssetPage = () => {
         if (!asset) return;
 
         if (action === 'view') {
+            openModal('view', asset);
+        }
+        if (action === 'qr') {
             openModal('view', asset);
         }
         if (action === 'edit') {
@@ -603,6 +1019,8 @@ const initializeAssetPage = () => {
     });
 
     assetModalOverlay?.querySelectorAll('.close-modal').forEach((button) => button.addEventListener('click', closeModal));
+    downloadQrBtn?.addEventListener('click', downloadAssetQr);
+    printQrBtn?.addEventListener('click', printAssetQr);
 
     assetForm?.addEventListener('submit', saveAsset);
     tableWrap?.addEventListener('click', handleActionClick);
@@ -668,8 +1086,11 @@ const initializeEmployeePage = () => {
         employeeContent.innerHTML = '';
         if (employees.length === 0) {
             const emptyState = document.createElement('div');
-            emptyState.className = 'glass-card';
-            emptyState.innerHTML = '<p>No employees found. Try adjusting search or filters.</p>';
+            emptyState.className = 'glass-card empty-state-card';
+            emptyState.innerHTML = `
+                <h3>No employees found</h3>
+                <p>Use the Add Employee button to create profiles and assign assets.</p>
+            `;
             employeeContent.appendChild(emptyState);
             return;
         }
@@ -790,6 +1211,11 @@ const initializeEmployeePage = () => {
             employees.unshift(employeeData);
             showToast('Employee added successfully.', 'success');
             saveActivity(`Employee Added: ${employeeData.name}`);
+            createNotification({
+                type: 'employee',
+                message: `New employee added: ${employeeData.name}.`,
+                employeeId: employeeData.id,
+            });
         }
         setStorage(STORAGE_KEYS.employees, employees);
         refreshEmployeeData();
@@ -838,6 +1264,11 @@ const initializeEmployeePage = () => {
             setStorage(STORAGE_KEYS.employees, updatedEmployees);
             showToast('All assigned assets returned.');
             saveActivity(`Returned assets from ${employee.name}.`);
+            createNotification({
+                type: 'returned',
+                message: `Returned assets from ${employee.name}.`,
+                employeeId: employee.id,
+            });
             refreshEmployeeData();
         }
     };
@@ -890,7 +1321,13 @@ const initializeEmployeePage = () => {
         setStorage(STORAGE_KEYS.assets, updatedAssets);
         setStorage(STORAGE_KEYS.employees, updatedEmployees);
         showToast('Asset successfully assigned.');
-        saveActivity(`Assigned ${asset.name} to ${employee.name}.`);
+        saveActivity(`Assigned ${asset.name} to ${employee.name}.`, asset.id);
+        createNotification({
+            type: 'assigned',
+            message: `${asset.name} assigned to ${employee.name}.`,
+            assetId: asset.id,
+            employeeId: employee.id,
+        });
         refreshEmployeeData();
         closeAssignModal();
     };
@@ -922,8 +1359,12 @@ const initializeReportsPage = () => {
     const reportSearch = document.getElementById('reportSearch');
     const reportFilterSearch = document.getElementById('reportFilterSearch');
     const reportCategoryFilter = document.getElementById('reportCategoryFilter');
+    const exportCsvBtn = document.getElementById('exportCsvBtn');
+    const exportPdfBtn = document.getElementById('exportPdfBtn');
     let statusChart = null;
     let categoryChart = null;
+    let monthlyChart = null;
+    let departmentChart = null;
 
     const populateReportFilters = () => {
         const categories = Array.from(new Set(getStorage(STORAGE_KEYS.assets, []).map((asset) => asset.category))).sort();
@@ -931,7 +1372,7 @@ const initializeReportsPage = () => {
     };
 
     const getReportData = () => {
-        const query = (reportSearch?.value || '').trim().toLowerCase();
+        const query = `${(reportSearch?.value || '').trim()} ${(reportFilterSearch?.value || '').trim()}`.trim().toLowerCase();
         const category = reportCategoryFilter?.value || 'all';
         return getStorage(STORAGE_KEYS.assets, []).filter((asset) => {
             const matchesQuery = [asset.name, asset.id, asset.category, asset.location, asset.condition, asset.status]
@@ -940,11 +1381,69 @@ const initializeReportsPage = () => {
         });
     };
 
+    const getMonthlyActivityData = () => {
+        const assets = getReportData();
+        const counts = {};
+        assets.forEach((asset) => {
+            if (!asset.purchaseDate) return;
+            const month = new Date(asset.purchaseDate).toLocaleDateString('en-IN', { year: 'numeric', month: 'short' });
+            counts[month] = (counts[month] || 0) + 1;
+        });
+        return Object.entries(counts)
+            .sort(([a], [b]) => new Date(a) - new Date(b))
+            .reduce((acc, [month, count]) => {
+                acc.labels.push(month);
+                acc.values.push(count);
+                return acc;
+            }, { labels: [], values: [] });
+    };
+
+    const getDepartmentAssetData = () => {
+        const employees = getStorage(STORAGE_KEYS.employees, []);
+        const counts = employees.reduce((acc, employee) => {
+            const department = employee.department || 'Unknown';
+            acc[department] = (acc[department] || 0) + (employee.assignedAssets?.length || 0);
+            return acc;
+        }, {});
+        return Object.entries(counts)
+            .sort((a, b) => b[1] - a[1])
+            .reduce((acc, [department, count]) => {
+                acc.labels.push(department);
+                acc.values.push(count);
+                return acc;
+            }, { labels: [], values: [] });
+    };
+
+    const getWarrantyStatus = (asset) => {
+        const today = new Date();
+        const start = asset.warrantyStart ? new Date(asset.warrantyStart) : null;
+        const end = asset.warrantyEnd ? new Date(asset.warrantyEnd) : null;
+        if (!end || Number.isNaN(end.getTime()) || today > end) {
+            return { label: 'Expired', css: 'critical', icon: '🔴' };
+        }
+        const diffDays = Math.ceil((end - today) / 86400000);
+        if (diffDays <= 30) {
+            return { label: 'Expiring Soon', css: 'warning', icon: '🟡' };
+        }
+        return { label: 'Active', css: 'excellent', icon: '🟢' };
+    };
+
+    const getWarrantyRemaining = (asset) => {
+        const today = new Date();
+        const end = asset.warrantyEnd ? new Date(asset.warrantyEnd) : null;
+        if (!end || Number.isNaN(end.getTime())) return 'Expired';
+        if (today > end) return 'Expired';
+        const diffDays = Math.ceil((end - today) / 86400000);
+        return `${diffDays} day${diffDays === 1 ? '' : 's'}`;
+    };
+
     const renderReportCards = () => {
         const assets = getReportData();
         document.getElementById('reportAssetTotal').textContent = assets.length;
         document.getElementById('reportAssetAvailable').textContent = assets.filter((asset) => asset.status === 'Available').length;
         document.getElementById('reportAssetAssigned').textContent = assets.filter((asset) => asset.status === 'Assigned').length;
+        document.getElementById('reportWarrantyExpiringSoon').textContent = assets.filter((asset) => getWarrantyStatus(asset).label === 'Expiring Soon').length;
+        document.getElementById('reportAverageHealth').textContent = `${getAverageHealth(assets)}%`;
         document.getElementById('reportEmployeeTotal').textContent = getStorage(STORAGE_KEYS.employees, []).length;
     };
 
@@ -963,12 +1462,18 @@ const initializeReportsPage = () => {
         const statusValues = Object.values(statusCounts);
         const categoryLabels = Object.keys(categoryCounts);
         const categoryValues = Object.values(categoryCounts);
+        const monthlyData = getMonthlyActivityData();
+        const departmentData = getDepartmentAssetData();
 
         const pieCanvas = document.getElementById('statusPieChart');
         const barCanvas = document.getElementById('categoryBarChart');
+        const lineCanvas = document.getElementById('monthlyActivityChart');
+        const departmentCanvas = document.getElementById('departmentAssetChart');
 
         if (statusChart) statusChart.destroy();
         if (categoryChart) categoryChart.destroy();
+        if (monthlyChart) monthlyChart.destroy();
+        if (departmentChart) departmentChart.destroy();
 
         statusChart = new Chart(pieCanvas, {
             type: 'doughnut',
@@ -980,9 +1485,7 @@ const initializeReportsPage = () => {
                 }],
             },
             options: {
-                plugins: {
-                    legend: { position: 'bottom' },
-                },
+                plugins: { legend: { position: 'bottom' } },
                 maintainAspectRatio: false,
             },
         });
@@ -1001,10 +1504,52 @@ const initializeReportsPage = () => {
             options: {
                 plugins: { legend: { display: false } },
                 scales: {
-                    y: {
-                        beginAtZero: true,
-                        grid: { color: 'rgba(148,163,184,0.16)' },
-                    },
+                    y: { beginAtZero: true, grid: { color: 'rgba(148,163,184,0.16)' } },
+                    x: { grid: { display: false } },
+                },
+                maintainAspectRatio: false,
+            },
+        });
+
+        monthlyChart = new Chart(lineCanvas, {
+            type: 'line',
+            data: {
+                labels: monthlyData.labels,
+                datasets: [{
+                    label: 'New Assets',
+                    data: monthlyData.values,
+                    borderColor: '#2563EB',
+                    backgroundColor: 'rgba(37, 99, 235, 0.12)',
+                    fill: true,
+                    tension: 0.35,
+                    pointRadius: 5,
+                }],
+            },
+            options: {
+                plugins: { legend: { display: false } },
+                scales: {
+                    y: { beginAtZero: true, grid: { color: 'rgba(148,163,184,0.16)' } },
+                    x: { grid: { display: false } },
+                },
+                maintainAspectRatio: false,
+            },
+        });
+
+        departmentChart = new Chart(departmentCanvas, {
+            type: 'bar',
+            data: {
+                labels: departmentData.labels,
+                datasets: [{
+                    label: 'Assigned Assets',
+                    data: departmentData.values,
+                    backgroundColor: departmentData.labels.map((_, index) => `rgba(16, 185, 129, ${0.7 - index * 0.06})`),
+                    borderRadius: 12,
+                }],
+            },
+            options: {
+                plugins: { legend: { display: false } },
+                scales: {
+                    y: { beginAtZero: true, grid: { color: 'rgba(148,163,184,0.16)' } },
                     x: { grid: { display: false } },
                 },
                 maintainAspectRatio: false,
@@ -1022,9 +1567,15 @@ const initializeReportsPage = () => {
             acc[asset.category] = (acc[asset.category] || 0) + 1;
             return acc;
         }, {});
+        const warrantyCounts = assets.reduce((acc, asset) => {
+            const label = getWarrantyStatus(asset).label;
+            acc[label] = (acc[label] || 0) + 1;
+            return acc;
+        }, {});
 
         const statusSummaryList = document.getElementById('statusSummaryList');
         const categorySummaryList = document.getElementById('categorySummaryList');
+        const warrantySummaryList = document.getElementById('warrantySummaryList');
 
         statusSummaryList.innerHTML = Object.entries(statusCounts)
             .map(([status, count]) => `<li><span>${status}</span><strong>${count}</strong></li>`)
@@ -1033,6 +1584,117 @@ const initializeReportsPage = () => {
         categorySummaryList.innerHTML = Object.entries(categoryCounts)
             .map(([category, count]) => `<li><span>${category}</span><strong>${count}</strong></li>`)
             .join('') || '<li><span>No category summary available</span></li>';
+
+        warrantySummaryList.innerHTML = Object.entries(warrantyCounts)
+            .map(([status, count]) => `<li><span>${status}</span><strong>${count}</strong></li>`)
+            .join('') || '<li><span>No warranty data available</span></li>';
+    };
+
+    const buildSimplePdf = (textLines) => {
+        const escapePdfString = (value) => String(value || '')
+            .replace(/\\/g, '\\\\')
+            .replace(/\(/g, '\\(')
+            .replace(/\)/g, '\\)');
+
+        const bodyCommands = textLines.map((line) => `(${escapePdfString(line)}) Tj T*`).join(' ');
+        const stream = `BT /F1 12 Tf 40 760 Td ${bodyCommands} ET`;
+        const content = `stream\n${stream}\nendstream\n`;
+        const objects = [
+            '1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n',
+            '2 0 obj\n<< /Type /Pages /Kids [3 0 R] /Count 1 >>\nendobj\n',
+            '3 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 4 0 R /Resources << /Font << /F1 5 0 R >> >> >>\nendobj\n',
+            `4 0 obj\n<< /Length ${stream.length} >>\n${content}endobj\n`,
+            '5 0 obj\n<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>\nendobj\n',
+        ];
+
+        let offset = 0;
+        const xrefEntries = ['0000000000 65535 f \n'];
+        objects.forEach((obj) => {
+            const entry = offset.toString().padStart(10, '0') + ' 00000 n \n';
+            xrefEntries.push(entry);
+            offset += obj.length;
+        });
+
+        const header = '%PDF-1.1\n';
+        const xref = `xref\n0 ${objects.length + 1}\n${xrefEntries.join('')}`;
+        const trailer = `trailer\n<< /Size ${objects.length + 1} /Root 1 0 R >>\nstartxref\n${offset}\n%%EOF`;
+        return new Blob([header, ...objects, xref, trailer], { type: 'application/pdf' });
+    };
+
+    const downloadBlob = (data, mimeType, filename) => {
+        const blob = new Blob([data], { type: mimeType });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = filename;
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        URL.revokeObjectURL(url);
+    };
+
+    const exportReportCsv = () => {
+        const assets = getReportData();
+        const employees = getStorage(STORAGE_KEYS.employees, []);
+        const assignedMap = employees.reduce((acc, employee) => {
+            (employee.assignedAssets || []).forEach((assetId) => {
+                acc[assetId] = employee.name;
+            });
+            return acc;
+        }, {});
+
+        const rows = [
+            ['Asset ID', 'Name', 'Category', 'Status', 'Assigned To', 'Location', 'Purchase Date', 'Condition'],
+            ...assets.map((asset) => [
+                asset.id,
+                asset.name,
+                asset.category,
+                asset.status,
+                assignedMap[asset.id] || '',
+                asset.location,
+                asset.purchaseDate,
+                asset.condition,
+            ]),
+        ];
+
+        const csv = rows.map((row) => row.map((cell) => `"${String(cell || '').replace(/"/g, '""')}"`).join(',')).join('\r\n');
+        downloadBlob(csv, 'text/csv;charset=utf-8;', 'assetflow-reports.csv');
+        showToast('CSV export completed.', 'success');
+    };
+
+    const exportReportPdf = () => {
+        const assets = getReportData();
+        const available = assets.filter((asset) => asset.status === 'Available').length;
+        const assigned = assets.filter((asset) => asset.status === 'Assigned').length;
+        const employees = getStorage(STORAGE_KEYS.employees, []).length;
+
+        const lines = [
+            'AssetFlow Report',
+            `Date: ${new Date().toLocaleDateString('en-IN')}`,
+            '',
+            `Total Assets: ${assets.length}`,
+            `Available: ${available}`,
+            `Assigned: ${assigned}`,
+            `Employees: ${employees}`,
+            '',
+            `Filter: ${reportCategoryFilter?.value || 'all'}`,
+            `Search: ${(reportSearch?.value || reportFilterSearch?.value || '-').trim()}`,
+            '',
+            'Status Summary:',
+            ...Object.entries(assets.reduce((acc, asset) => {
+                acc[asset.status] = (acc[asset.status] || 0) + 1;
+                return acc;
+            }, {})).map(([status, value]) => `${status}: ${value}`),
+            '',
+            'Category Summary:',
+            ...Object.entries(assets.reduce((acc, asset) => {
+                acc[asset.category] = (acc[asset.category] || 0) + 1;
+                return acc;
+            }, {})).map(([category, value]) => `${category}: ${value}`),
+        ];
+        const pdfBlob = buildSimplePdf(lines);
+        downloadBlob(pdfBlob, 'application/pdf', 'assetflow-report.pdf');
+        showToast('PDF export completed.', 'success');
     };
 
     const renderReports = () => {
@@ -1045,7 +1707,17 @@ const initializeReportsPage = () => {
     renderReports();
 
     reportSearch?.addEventListener('input', renderReports);
+    reportFilterSearch?.addEventListener('input', renderReports);
     reportCategoryFilter?.addEventListener('change', renderReports);
+    exportCsvBtn?.addEventListener('click', exportReportCsv);
+    exportPdfBtn?.addEventListener('click', exportReportPdf);
+
+    window.addEventListener('storage', ({ key }) => {
+        if ([STORAGE_KEYS.assets, STORAGE_KEYS.employees].includes(key)) {
+            renderReports();
+        }
+    });
+    window.addEventListener('focus', renderReports);
 };
 
 const initNavigationToggle = () => {
@@ -1064,14 +1736,68 @@ const initNavigationToggle = () => {
     });
 };
 
+const initKeyboardShortcuts = () => {
+    document.addEventListener('keydown', (event) => {
+        const active = document.activeElement;
+        const isFormInput = active && ['INPUT', 'TEXTAREA', 'SELECT'].includes(active.tagName);
+        if (event.key === 'Escape') {
+            const modal = document.querySelector('.modal-overlay:not(.hidden)');
+            const closeBtn = modal?.querySelector('.close-modal');
+            if (closeBtn) {
+                closeBtn.click();
+                event.preventDefault();
+            }
+            return;
+        }
+        if (isFormInput) return;
+
+        const page = document.body.dataset.page;
+        if (event.key === '/') {
+            const searchInput = document.querySelector('.top-search input, #assetSearch, #employeeSearch, #reportSearch');
+            searchInput?.focus();
+            event.preventDefault();
+            return;
+        }
+        if (event.key.toLowerCase() === 'n') {
+            if (page === 'assets') {
+                document.getElementById('openAssetModalBtn')?.click();
+            } else if (page === 'employees') {
+                document.getElementById('openEmployeeModalBtn')?.click();
+            } else {
+                showToast('Press N on Assets or Employees to create new items.', 'info');
+            }
+            return;
+        }
+        if (event.key === '?') {
+            showToast('Shortcuts: / to search, N to add, Esc to close modal.', 'info');
+        }
+    });
+};
+
 const initApp = () => {
+    // Basic auth guard: redirect to login if not authenticated
+    const _userRaw = localStorage.getItem('assetflow_user');
+    if (!_userRaw && document.body.dataset.page !== 'login') {
+        window.location.href = 'login.html';
+        return;
+    }
+    if (_userRaw && document.body.dataset.page === 'login') {
+        window.location.href = 'index.html';
+        return;
+    }
+
+    showLoading();
     initLocalStorage();
     seedAssignedAssets();
     initNavigationToggle();
+    initNotificationButton();
+    ensureWarrantyExpiryNotifications();
+    initKeyboardShortcuts();
 
     const page = document.body.dataset.page;
     if (page === 'dashboard') {
         renderDashboard();
+        setInterval(renderDashboard, 86400000);
     }
     if (page === 'assets') {
         initializeAssetPage();
@@ -1082,6 +1808,165 @@ const initApp = () => {
     if (page === 'reports') {
         initializeReportsPage();
     }
+
+    requestAnimationFrame(() => setTimeout(hideLoading, 140));
 };
 
 window.addEventListener('DOMContentLoaded', initApp);
+
+/* Authentication helpers and login handlers */
+const AUTH_KEY = 'assetflow_user';
+
+const DEMO_USERS = [
+    { name: 'Administrator', email: 'admin@assetflow.com', password: 'admin123', role: 'Admin' },
+    { name: 'Employee User', email: 'employee@assetflow.com', password: 'employee123', role: 'Employee' },
+];
+
+const getSessionUser = () => {
+    try {
+        const raw = localStorage.getItem(AUTH_KEY);
+        return raw ? JSON.parse(raw) : null;
+    } catch {
+        return null;
+    }
+};
+
+const setSessionUser = (user) => {
+    try {
+        const payload = JSON.stringify(user);
+        localStorage.setItem(AUTH_KEY, payload);
+    } catch (err) {
+        console.error('setSessionUser error', err);
+    }
+};
+
+const clearSessionUser = () => {
+    localStorage.removeItem(AUTH_KEY);
+};
+
+const updateUIForUser = () => {
+    const user = getSessionUser();
+    if (!user) return;
+    document.querySelectorAll('.sidebar-user').forEach((el) => {
+        const nameEl = el.querySelector('div p');
+        const roleEl = el.querySelector('div span');
+        const avatarEl = el.querySelector('.sidebar-avatar');
+        if (nameEl) nameEl.textContent = user.name || user.email.split('@')[0];
+        if (roleEl) roleEl.textContent = user.role || '';
+        if (avatarEl) avatarEl.textContent = (user.name || 'AF').split(' ').map(s=>s[0]).slice(0,2).join('').toUpperCase();
+    });
+    document.querySelectorAll('.profile-btn').forEach((btn) => {
+        const nameSpan = btn.querySelector('div span');
+        if (nameSpan) nameSpan.textContent = user.name || user.email.split('@')[0];
+    });
+};
+
+const attachLogoutHandlers = () => {
+    document.querySelectorAll('.sidebar-logout').forEach((btn) => {
+        btn.addEventListener('click', () => {
+            clearSessionUser();
+            window.location.href = 'login.html';
+        });
+    });
+};
+
+const validateEmail = (value) => {
+    if (!value) return 'Email is required.';
+    const re = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!re.test(value)) return 'Enter a valid email.';
+    return '';
+};
+
+const validatePassword = (value) => {
+    if (!value) return 'Password is required.';
+    if (value.length < 6) return 'Minimum 6 characters.';
+    return '';
+};
+
+const initLoginPage = () => {
+    const loginForm = document.getElementById('loginForm');
+    if (!loginForm) return;
+
+    const emailInput = document.getElementById('loginEmail');
+    const passwordInput = document.getElementById('loginPassword');
+    const rememberInput = document.getElementById('rememberMe');
+    const emailError = document.getElementById('emailError');
+    const passwordError = document.getElementById('passwordError');
+    const loginError = document.getElementById('loginError');
+    const togglePassword = document.getElementById('togglePassword');
+
+    togglePassword?.addEventListener('click', () => {
+        if (passwordInput.type === 'password') {
+            passwordInput.type = 'text';
+            togglePassword.innerHTML = '<i class="fa-solid fa-eye-slash"></i>';
+        } else {
+            passwordInput.type = 'password';
+            togglePassword.innerHTML = '<i class="fa-solid fa-eye"></i>';
+        }
+    });
+
+    const showLoginError = (msg) => {
+        loginError.textContent = msg;
+        loginError.classList.add('show');
+        setTimeout(() => loginError.classList.remove('show'), 3000);
+    };
+
+    loginForm.addEventListener('submit', (e) => {
+        e.preventDefault();
+        try {
+            emailError.textContent = '';
+            passwordError.textContent = '';
+            loginError.textContent = '';
+
+            if (!emailInput || !passwordInput) {
+                console.error('Login inputs not found in DOM.');
+                return;
+            }
+
+            const email = (emailInput.value || '').trim();
+            const password = passwordInput.value || '';
+            const remember = Boolean(rememberInput.checked);
+            console.debug('Attempting login', { email, remember });
+
+        const emailErr = validateEmail(email);
+        const passErr = validatePassword(password);
+        if (emailErr) emailError.textContent = emailErr;
+        if (passErr) passwordError.textContent = passErr;
+        if (emailErr || passErr) return;
+
+            showLoading();
+            setTimeout(() => {
+                hideLoading();
+                const user = DEMO_USERS.find(u => u.email.toLowerCase() === email.toLowerCase() && u.password === password);
+                if (!user) {
+                    showLoginError('Invalid credentials — please try again.');
+                    return;
+                }
+                const payload = { name: user.name, email: user.email, role: user.role };
+                setSessionUser(payload);
+                updateUIForUser();
+                showToast(`Welcome back, ${user.name.split(' ')[0]}!`, 'success');
+                setTimeout(() => { window.location.href = 'index.html'; }, 700);
+            }, 400);
+        } catch (err) {
+            console.error('Login handler error', err);
+            showLoginError('An unexpected error occurred. Check console.');
+        }
+    });
+};
+
+/* Initialize auth UI and handlers on all pages */
+window.addEventListener('DOMContentLoaded', () => {
+    attachLogoutHandlers();
+    updateUIForUser();
+    initLoginPage();
+});
+
+// Expose a safe attach function for the login page to call immediately
+window.attachLoginHandler = () => {
+    try {
+        initLoginPage();
+    } catch (err) {
+        console.error('attachLoginHandler error', err);
+    }
+};
