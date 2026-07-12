@@ -1,109 +1,113 @@
-# 🚀 AssetFlow Pro
+# AssetFlow Backend
 
-**AssetFlow Pro** is a modern Enterprise Asset Management System developed for the **Odoo Hackathon 2026**. It helps organizations efficiently manage assets, employees, assignments, and reports through a clean and interactive dashboard.
+A REST API backend for the AssetFlow Pro frontend (Odoo Hackathon). Built with
+Node.js + Express + SQLite (via `better-sqlite3`) — no external database
+server to install, everything lives in a single file at `data/assetflow.db`.
 
----
+It mirrors the exact data model your frontend already used in `localStorage`
+(`assetflow_assets`, `assetflow_employees`, `assetflow_activities`,
+`assetflow_notifications`), so switching from localStorage to real API calls
+shouldn't change any field names.
 
-## 📌 Features
+## 1. Setup
 
-- 🔐 Secure Login System
-- 📊 Interactive Dashboard
-- 📦 Asset Management
-- 👨‍💼 Employee Management
-- 📈 Reports & Analytics
-- 🔍 Smart Search
-- 📝 Add, Edit, View & Delete Assets
-- 👥 Assign Assets to Employees
-- 📱 Professional Responsive UI (In Progress)
-- 💾 Local Storage Support
-- 🎨 Modern ERP-inspired Design
-
----
-
-## 🛠️ Technologies Used
-
-- HTML5
-- CSS3
-- JavaScript (Vanilla JS)
-- Local Storage API
-- Git & GitHub
-
----
-
-## 📂 Project Structure
-
-```
-AssetFlow-Pro/
-│
-├── login.html
-├── index.html
-├── assets.html
-├── employees.html
-├── reports.html
-├── style.css
-├── script.js
-└── README.md
+```bash
+cd assetflow-backend
+npm install
+cp .env.example .env
+npm start
 ```
 
----
+Server runs at `http://localhost:4000` by default. It seeds itself on first
+run with the same sample assets/employees/demo users your frontend already had.
 
-## 🎯 Project Goal
+## 2. Demo login accounts (same as before)
 
-The objective of AssetFlow Pro is to provide a simple, efficient, and user-friendly platform for managing organizational assets and employee allocations while demonstrating modern web development practices.
+| Role     | Email                    | Password     |
+|----------|---------------------------|--------------|
+| Admin    | admin@assetflow.com       | admin123     |
+| Employee | employee@assetflow.com    | employee123  |
 
----
+## 3. Auth
 
-## 👥 Team
+All routes except `/api/auth/login` and `/api/auth/register` require a JWT:
 
-**Team Leader**
-- Yashwanth Gundu
+```
+Authorization: Bearer <token>
+```
 
-**Team Members**
-- Karthik Halegoudru
-- Hemanth Kumar
-- Tappita Sahith Krishna
+You get the token back from `/api/auth/login`.
 
----
+## 4. Endpoints
 
-## 🚧 Upcoming Features
+### Auth
+| Method | Route | Body | Notes |
+|---|---|---|---|
+| POST | `/api/auth/login` | `{ email, password }` | returns `{ token, user }` |
+| POST | `/api/auth/register` | `{ name, email, password }` | "Create Account" button, role defaults to Employee |
+| GET | `/api/auth/me` | — | current user from token |
 
-- 📊 Advanced Analytics Dashboard
-- 📈 Interactive Charts
-- 🏷️ Asset Health Score
-- 🛡️ Warranty Tracker
-- 📱 QR Code Generation
-- 🔔 Notification Center
-- 📄 Export PDF & CSV Reports
-- 🌙 Dark Mode
-- 🔍 Advanced Search & Filters
+### Assets
+| Method | Route | Notes |
+|---|---|---|
+| GET | `/api/assets?search=&category=&status=` | list + filter |
+| GET | `/api/assets/:id` | single asset (includes `healthScore`, `warrantyStatus`, `warrantyRemaining`) |
+| GET | `/api/assets/:id/timeline` | activity history for that asset |
+| POST | `/api/assets` | create — body matches the "New Asset" form fields |
+| PUT | `/api/assets/:id` | update any field |
+| DELETE | `/api/assets/:id` | remove |
+| POST | `/api/assets/:id/assign` | `{ employeeId }` — must be `Available` |
+| POST | `/api/assets/:id/return` | unassign, back to `Available` |
 
----
+### Employees
+| Method | Route | Notes |
+|---|---|---|
+| GET | `/api/employees?search=&department=&assetFilter=hasAssets\|noAssets` | list + filter |
+| GET | `/api/employees/:id` | includes `assignedAssets: [assetId, ...]` |
+| POST | `/api/employees` | create |
+| PUT | `/api/employees/:id` | update |
+| DELETE | `/api/employees/:id` | deletes employee, returns their assets to Available |
 
-## 📸 Screenshots
+### Activities / Notifications
+| Method | Route |
+|---|---|
+| GET | `/api/activities?limit=12` |
+| GET | `/api/notifications` |
+| POST | `/api/notifications/:id/read` |
+| POST | `/api/notifications/read-all` |
+| DELETE | `/api/notifications` (clear all) |
 
-> *(Added screenshots of Login, Dashboard, Assets, Employees, and Reports here.)*
-<img width="1920" height="949" alt="{C9893312-0057-4C1D-B84D-D29401DB7C98}" src="https://github.com/user-attachments/assets/c4a4b74f-fd3d-4663-801c-0f6eb85e5602" />
+### Dashboard & Reports
+| Method | Route | Notes |
+|---|---|---|
+| GET | `/api/dashboard/stats` | powers the 7 dashboard cards + recent activity |
+| GET | `/api/reports/summary` | status/category/warranty/department breakdowns + last-6-months activity, for the 4 charts on `reports.html` |
 
+## 5. Wiring up the existing frontend
 
+Your `script.js` currently reads/writes `localStorage` directly via
+`getStorage`/`setStorage`. To connect it to this backend, the cleanest path
+is to replace those two functions with `fetch` calls to the endpoints above,
+and store the JWT (from login) in place of the old `assetflow_user` key.
 
-<img width="1920" height="969" alt="{429E4E11-452F-44B7-B398-D23A8C652D0A}" src="https://github.com/user-attachments/assets/8be8f56f-37dd-4450-82da-9691ece45efd" />
+If you'd like, I can go through `script.js` and rewire it to call this API
+instead of localStorage — just say the word and I'll do that next.
 
-<img width="1920" height="935" alt="{33F3FB27-C577-4D38-85AB-BC1D7590F05B}" src="https://github.com/user-attachments/assets/d93be69d-587a-43c6-9da2-782e418e2763" />
+## 6. Project structure
 
-<img width="1920" height="911" alt="{2708B22E-09F3-4DFD-AEBA-4DDDB70FD5C5}" src="https://github.com/user-attachments/assets/7f724694-7f22-4eeb-8a88-f289a84112fe" />
-
-<img width="1920" height="921" alt="{B38AC0C1-6103-4D64-8C64-F30AC56451ED}" src="https://github.com/user-attachments/assets/c0cebdde-0559-42f9-ab09-c3a6b1bf92f2" />
-
-
-
-
-
----
-
-## 📜 License
-
-This project was developed for educational purposes as part of the **Odoo Hackathon 2026**.
-
----
-
-⭐ If you like this project, don't forget to star the repository!
+```
+assetflow-backend/
+├── server.js              # entry point
+├── db.js                  # schema + seed data
+├── middleware/auth.js      # JWT verification
+├── utils/calc.js           # health score & warranty calculations (ported from script.js)
+├── utils/ids.js             # AST-/EMP- style ID generation
+└── routes/
+    ├── auth.js
+    ├── assets.js
+    ├── employees.js
+    ├── activities.js
+    ├── notifications.js
+    ├── reports.js
+    └── dashboard.js
+```
