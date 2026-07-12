@@ -569,9 +569,9 @@ const handleDashboardSearch = (event) => {
     const assets = getStorage(STORAGE_KEYS.assets, []);
     const employees = getStorage(STORAGE_KEYS.employees, []);
 
-    const assetMatch = assets.find((asset) => [asset.name, asset.id, asset.category, asset.location, asset.serial].some((value) => value.toLowerCase().includes(query)));
-    const employeeMatch = employees.find((employee) => [employee.name, employee.id, employee.role, employee.department, employee.email, employee.location].some((value) => value.toLowerCase().includes(query)));
-    const reportMatch = assets.find((asset) => [asset.name, asset.id, asset.category, asset.location, asset.status].some((value) => value.toLowerCase().includes(query)));
+    const assetMatch = assets.find((asset) => [asset.name, asset.id, asset.category, asset.location, asset.serial].some((value) => String(value || '').toLowerCase().includes(query)));
+    const employeeMatch = employees.find((employee) => [employee.name, employee.id, employee.role, employee.department, employee.email, employee.location].some((value) => String(value || '').toLowerCase().includes(query)));
+    const reportMatch = assets.find((asset) => [asset.name, asset.id, asset.category, asset.location, asset.status].some((value) => String(value || '').toLowerCase().includes(query)));
 
     if (assetMatch) {
         highlightSearchResult(assetMatch.name || assetMatch.id);
@@ -699,7 +699,7 @@ const initializeAssetPage = () => {
 
         return getStorage(STORAGE_KEYS.assets, []).filter((asset) => {
             const matchesQuery = [asset.name, asset.id, asset.category, asset.location].some((value) =>
-                value.toLowerCase().includes(query)
+                String(value || '').toLowerCase().includes(query)
             );
             const matchesCategory = category === 'all' || asset.category === category;
             const matchesStatus = status === 'all' || asset.status === status;
@@ -1054,7 +1054,7 @@ const initializeEmployeePage = () => {
 
         return employees.filter((employee) => {
             const matchesQuery = [employee.name, employee.id, employee.role, employee.department, employee.location]
-                .some((value) => value.toLowerCase().includes(query));
+                .some((value) => String(value || '').toLowerCase().includes(query));
             const matchesDepartment = department === 'all' || employee.department === department;
             const hasAssets = employee.assignedAssets.length > 0;
             const matchesAssetStatus =
@@ -1376,7 +1376,7 @@ const initializeReportsPage = () => {
         const category = reportCategoryFilter?.value || 'all';
         return getStorage(STORAGE_KEYS.assets, []).filter((asset) => {
             const matchesQuery = [asset.name, asset.id, asset.category, asset.location, asset.condition, asset.status]
-                .some((value) => value.toLowerCase().includes(query));
+                .some((value) => String(value || '').toLowerCase().includes(query));
             return matchesQuery && (category === 'all' || asset.category === category);
         });
     };
@@ -1787,29 +1787,34 @@ const initApp = () => {
     }
 
     showLoading();
-    initLocalStorage();
-    seedAssignedAssets();
-    initNavigationToggle();
-    initNotificationButton();
-    ensureWarrantyExpiryNotifications();
-    initKeyboardShortcuts();
+    try {
+        initLocalStorage();
+        seedAssignedAssets();
+        initNavigationToggle();
+        initNotificationButton();
+        ensureWarrantyExpiryNotifications();
+        initKeyboardShortcuts();
 
-    const page = document.body.dataset.page;
-    if (page === 'dashboard') {
-        renderDashboard();
-        setInterval(renderDashboard, 86400000);
+        const page = document.body.dataset.page;
+        if (page === 'dashboard') {
+            renderDashboard();
+            setInterval(renderDashboard, 86400000);
+        }
+        if (page === 'assets') {
+            initializeAssetPage();
+        }
+        if (page === 'employees') {
+            initializeEmployeePage();
+        }
+        if (page === 'reports') {
+            initializeReportsPage();
+        }
+    } catch (err) {
+        console.error('initApp error', err);
+        showToast('Something went wrong loading this page. Check console for details.', 'error');
+    } finally {
+        requestAnimationFrame(() => setTimeout(hideLoading, 140));
     }
-    if (page === 'assets') {
-        initializeAssetPage();
-    }
-    if (page === 'employees') {
-        initializeEmployeePage();
-    }
-    if (page === 'reports') {
-        initializeReportsPage();
-    }
-
-    requestAnimationFrame(() => setTimeout(hideLoading, 140));
 };
 
 window.addEventListener('DOMContentLoaded', initApp);
