@@ -35,6 +35,24 @@
                     <span>Reports</span>
                 </a>
             </nav>
+            <div class="sidebar-divider"></div>
+            <div class="sidebar-footer">
+                <div class="sidebar-user">
+                    <div class="sidebar-avatar">A</div>
+                    <div>
+                        <p>Admin</p>
+                        <span>Asset Manager</span>
+                    </div>
+                </div>
+                <button class="sidebar-logout">
+                    <i class="fa-solid fa-right-from-bracket"></i>
+                    Logout
+                </button>
+                <button class="sidebar-collapse" id="sidebarCollapseBtn">
+                    <i class="fa-solid fa-chevron-left"></i>
+                    <span>Collapse</span>
+                </button>
+            </div>
         </aside>
         <div class="content-area">
             <header class="topbar">
@@ -111,6 +129,7 @@
                     <div class="asset-table-wrap" id="assetTableWrap"></div>
                     <div class="asset-cards-wrap hidden" id="assetCardsWrap"></div>
                 </section>
+                <footer class="page-footer">© 2026 AssetFlow Pro | Odoo Hackathon</footer>
             </main>
         </div>
     </div>
@@ -149,8 +168,28 @@
                         <input type="date" name="purchaseDate" required>
                     </label>
                     <label>
+                        Warranty Start
+                        <input type="date" name="warrantyStart" required>
+                    </label>
+                    <label>
+                        Warranty End
+                        <input type="date" name="warrantyEnd" required>
+                    </label>
+                    <label>
                         Location
                         <input type="text" name="location" required>
+                    </label>
+                    <label>
+                        Maintenance Count
+                        <input type="number" name="maintenanceCount" min="0" step="1" value="0">
+                    </label>
+                    <label>
+                        Warranty Remaining
+                        <input type="text" name="warrantyRemaining" disabled>
+                    </label>
+                    <label>
+                        Health Score
+                        <input type="text" name="healthScore" disabled>
                     </label>
                     <label>
                         Condition
@@ -170,6 +209,23 @@
                         </select>
                     </label>
                 </div>
+                <div class="qr-section hidden" id="assetQrSection">
+                    <div class="qr-preview">
+                        <canvas id="assetQrCanvas" aria-label="Asset QR Code"></canvas>
+                        <p class="eyebrow">Scan this QR code for asset details.</p>
+                    </div>
+                    <div class="qr-actions">
+                        <button type="button" class="secondary-btn" id="downloadQrBtn">Download QR</button>
+                        <button type="button" class="secondary-btn" id="printQrBtn">Print QR</button>
+                    </div>
+                </div>
+                <div class="timeline-section hidden" id="assetTimelineSection">
+                    <div class="timeline-header">
+                        <h4>Asset Timeline</h4>
+                        <p class="eyebrow">History of purchase, assignment, return, and maintenance events.</p>
+                    </div>
+                    <ul class="timeline-list" id="assetTimelineList"></ul>
+                </div>
                 <div class="modal-actions">
                     <button type="button" class="secondary-btn close-modal">Cancel</button>
                     <button type="submit" class="primary-btn">Save Asset</button>
@@ -178,13 +234,14 @@
         </div>
     </div>
 
-    <div class="toast-container" id="toastContainer"></div>
+    <div class="toast-container" id="toastContainer" role="status" aria-live="polite" aria-atomic="true"></div>
+    <div class="notification-panel" id="notificationPanel" aria-hidden="true"></div>
     <div class="loading-overlay hidden" id="loadingOverlay">
         <div class="loader"></div>
     </div>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js" integrity="sha512-IKnqszelJwYuY6Q1Bek6KJ3HtvG5kEZLJ0mh8gJbkElmr5nSBGCp++jGVGlme7x6W7d62uuX3/jI+U72on9x8Q==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrious/4.0.2/qrious.min.js" integrity="sha512-jfVJhfhio2DUQYSI9+jkKDO7IrAmLxx+1B+jU9JmZ5A5Z/ynDRY6g1xl+8QGlpSK4cH/K1U0B3L60nTh/BMCA==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
     <script src="script.js"></script>
 </body>
 </html>
-
