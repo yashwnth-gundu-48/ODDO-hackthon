@@ -35,6 +35,24 @@
                     <span>Reports</span>
                 </a>
             </nav>
+            <div class="sidebar-divider"></div>
+            <div class="sidebar-footer">
+                <div class="sidebar-user">
+                    <div class="sidebar-avatar">A</div>
+                    <div>
+                        <p>Admin</p>
+                        <span>Asset Manager</span>
+                    </div>
+                </div>
+                <button class="sidebar-logout">
+                    <i class="fa-solid fa-right-from-bracket"></i>
+                    Logout
+                </button>
+                <button class="sidebar-collapse" id="sidebarCollapseBtn">
+                    <i class="fa-solid fa-chevron-left"></i>
+                    <span>Collapse</span>
+                </button>
+            </div>
         </aside>
 
         <div class="content-area">
@@ -103,10 +121,37 @@
                     </article>
                     <article class="glass-card">
                         <div class="card-icon violet">
+                            <i class="fa-solid fa-tools"></i>
+                        </div>
+                        <div>
+                            <p>Under Maintenance</p>
+                            <h3 id="pendingReviews">0</h3>
+                        </div>
+                    </article>
+                    <article class="glass-card">
+                        <div class="card-icon orange">
+                            <i class="fa-solid fa-triangle-exclamation"></i>
+                        </div>
+                        <div>
+                            <p>Warranty Expiring Soon</p>
+                            <h3 id="warrantyExpiringSoon">0</h3>
+                        </div>
+                    </article>
+                    <article class="glass-card">
+                        <div class="card-icon green">
+                            <i class="fa-solid fa-heart-pulse"></i>
+                        </div>
+                        <div>
+                            <p>Average Health</p>
+                            <h3 id="averageHealth">0%</h3>
+                        </div>
+                    </article>
+                    <article class="glass-card">
+                        <div class="card-icon violet">
                             <i class="fa-solid fa-user-group"></i>
                         </div>
                         <div>
-                            <p>Employees</p>
+                            <p>Total Employees</p>
                             <h3 id="employeesCount">0</h3>
                         </div>
                     </article>
@@ -158,17 +203,19 @@
                             </div>
                             <div>
                                 <span>Pending reviews</span>
-                                <strong>4</strong>
+                                <strong id="pendingReviews">0</strong>
                             </div>
                         </div>
                     </article>
                 </section>
             </main>
+            <footer class="page-footer">© 2026 AssetFlow Pro | Odoo Hackathon</footer>
         </div>
     </div>
 
-    <div class="toast-container" id="toastContainer"></div>
-    <div class="loading-overlay" id="loadingOverlay">
+    <div class="toast-container" id="toastContainer" role="status" aria-live="polite" aria-atomic="true"></div>
+    <div class="notification-panel" id="notificationPanel" aria-hidden="true"></div>
+    <div class="loading-overlay hidden" id="loadingOverlay">
         <div class="loader"></div>
     </div>
 
