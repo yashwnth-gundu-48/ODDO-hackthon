@@ -90,6 +90,7 @@ The objective of AssetFlow Pro is to provide a simple, efficient, and user-frien
 
 <img width="1920" height="911" alt="{2708B22E-09F3-4DFD-AEBA-4DDDB70FD5C5}" src="https://github.com/user-attachments/assets/7f724694-7f22-4eeb-8a88-f289a84112fe" />
 
+<img width="1920" height="921" alt="{B38AC0C1-6103-4D64-8C64-F30AC56451ED}" src="https://github.com/user-attachments/assets/c0cebdde-0559-42f9-ab09-c3a6b1bf92f2" />
 
 
 
